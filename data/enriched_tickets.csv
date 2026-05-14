@@ -1,11 +1,11 @@
-ticket_id,created_date,customer_text,region,first_response,resolved_at,sentiment,category
-INC-1000,19/04/2026 12:56,I can't access my API. Getting Timeout error.,UK-LON,20/04/2026 17:48,27/04/2026 7:10,0,Technical
-INC-1001,23/04/2026 16:17,I can't get successful response. REST API is responding with Auth Failed error.,CA-TORONTO,23/04/2026 16:32,26/04/2026 11:36,0.12,Technical
-INC-1002,21/04/2026 8:00,ALL USERS can't access API. This is negatively impacting our productivity!,US-EAST,22/04/2026 1:42,25/04/2026 1:43,-0.38,Account
-INC-1003,05/04/2026 2:08,I can't access my Admin Page. Getting 404 error.,US-EAST,06/04/2026 4:17,08/04/2026 22:32,0,Technical
-INC-1004,27/04/2026 0:05,I can't get successful response. REST API is responding with 500 Internal Server error.,CA-TORONTO,28/04/2026 10:35,05/05/2026 4:10,0.38,Technical
-INC-1005,21/04/2026 3:23,I can't get successful response. REST API is responding with 404 error.,PH-NCR,21/04/2026 20:17,22/04/2026 17:07,0.75,Technical
-INC-1006,09/04/2026 6:16,Why is the Admin Page so slow today? This is affecting our work!,PH-NCR,09/04/2026 17:10,12/04/2026 8:41,-0.38,Feedback
-INC-1007,02/04/2026 6:11,ALL USERS can't access Mobile App. This is negatively impacting our productivity!,SG-CENTRAL,04/04/2026 1:30,07/04/2026 12:42,-0.38,Account
-INC-1008,16/04/2026 3:35,How do I enable Portal feature? I can't find it in the console.,SG-CENTRAL,16/04/2026 19:01,17/04/2026 17:28,0,Account
-INC-1009,26/04/2026 23:51,ALL USERS can't access Dashboard. This is negatively impacting our productivity!,CA-TORONTO,27/04/2026 5:04,28/04/2026 1:34,-0.38,Account
+ticket_id,created_at,customer_text,region,first_response_at,sentiment,category
+INC-1000,05/04/2026 12:58,Some of the user's can't access Mobile App. Getting Auth Failed error.,UK-LONDON,06/04/2026 11:58,-0.5,Technical
+INC-1001,09/04/2026 11:09,ALL USERS can't access Mobile App because it keeps crashing. The This is negatively impacting our productivity!,UK-LONDON,09/04/2026 19:19,-0.8,Technical
+INC-1002,25/04/2026 0:32,Some of the user's can't access API. Getting 500 Internal Server error.,CA-TORONTO,26/04/2026 0:06,-0.6,Technical
+INC-1003,28/04/2026 10:40,Some of the user's can't access Mobile App. Getting Auth Failed error.,CA-TORONTO,29/04/2026 1:49,-0.5,Account
+INC-1004,27/04/2026 16:37,Excellent service! Agent Diane helped me a lot!,AU-SYDNEY,28/04/2026 13:52,0.9,Feedback
+INC-1005,12/04/2026 5:08,How do I reset my password for the API?,CA-TORONTO,12/04/2026 6:46,0,How-To Question
+INC-1006,13/04/2026 11:43,Some of the user's can't access Dashboard. Getting Auth Failed error.,PH-NCR,14/04/2026 0:10,-0.4,Technical
+INC-1007,01/04/2026 12:06,ALL USERS can't access Dashboard because it keeps crashing. The This is negatively impacting our productivity!,CA-TORONTO,01/04/2026 18:45,-0.4,Technical
+INC-1008,03/04/2026 23:43,I was charged twice for my Portal subscription. Refund please.,SG-CENTRAL,04/04/2026 1:36,-0.7,Billing
+INC-1009,05/04/2026 16:07,ALL USERS can't access Admin Page because it keeps crashing. The This is negatively impacting our productivity!,AU-SYDNEY,05/04/2026 23:44,-0.8,Technical
