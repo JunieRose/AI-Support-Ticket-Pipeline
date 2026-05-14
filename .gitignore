@@ -1,0 +1,11 @@
+# Credentials and Environment
+.env
+config
+*.pem
+.oci/
+
+# Ignore all CSV files everywhere
+*.csv
+
+# But DO NOT ignore CSV files inside the data folder
+!data/*.csv
