@@ -1,0 +1,11 @@
+ticket_id,created_at,customer_text,region,first_response_at
+INC-1000,2026-04-05 12:58:23,Some of the user's can't access Mobile App. Getting Auth Failed error.,UK-LONDON,2026-04-06 11:58:33
+INC-1001,2026-04-09 11:09:47,ALL USERS can't access Mobile App because it keeps crashing. The This is negatively impacting our productivity!,UK-LONDON,2026-04-09 19:19:47
+INC-1002,2026-04-25 00:32:41,Some of the user's can't access API. Getting 500 Internal Server error.,CA-TORONTO,2026-04-26 00:06:25
+INC-1003,2026-04-28 10:40:04,Some of the user's can't access Mobile App. Getting Auth Failed error.,CA-TORONTO,2026-04-29 01:49:01
+INC-1004,2026-04-27 16:37:56,Excellent service! Agent Diane helped me a lot!,AU-SYDNEY,2026-04-28 13:52:58
+INC-1005,2026-04-12 05:08:47,How do I reset my password for the API?,CA-TORONTO,2026-04-12 06:46:33
+INC-1006,2026-04-13 11:43:37,Some of the user's can't access Dashboard. Getting Auth Failed error.,PH-NCR,2026-04-14 00:10:29
+INC-1007,2026-04-01 12:06:02,ALL USERS can't access Dashboard because it keeps crashing. The This is negatively impacting our productivity!,CA-TORONTO,2026-04-01 18:45:19
+INC-1008,2026-04-03 23:43:07,I was charged twice for my Portal subscription. Refund please.,SG-CENTRAL,2026-04-04 01:36:39
+INC-1009,2026-04-05 16:07:31,ALL USERS can't access Admin Page because it keeps crashing. The This is negatively impacting our productivity!,AU-SYDNEY,2026-04-05 23:44:30
