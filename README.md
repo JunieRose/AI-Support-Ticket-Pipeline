@@ -41,6 +41,7 @@ This project goes beyond a simple script by addressing real-world cloud engineer
 
 ## 📊 Business Insights
 The final output is a dynamic dashboard that identifies operational bottlenecks:
+> [🔗 View the Live Dashboard](https://gd1855ac7f362cb-supportdb.adb.ap-singapore-1.oraclecloudapps.com/ords/admin/_sdw/dashboards/?name=Support%20Tickets%20Dashboard)
 
 ![Business Dashboard](assets/business_dashboard.jpg)
 
