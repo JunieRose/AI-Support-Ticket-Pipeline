@@ -60,4 +60,4 @@ The final output is a dynamic dashboard that identifies operational bottlenecks:
 ---
 
 ## 🎓 Author
-**Junie Rose** *Principal Technical Support Engineer | Data Enghineer* *Specializing in OCI Data Management & Generative AI Solutions.*
+**Junie Rose** *Principal Technical Support Engineer | Data Engineer* *Specializing in OCI Data Management & Generative AI Solutions.*
