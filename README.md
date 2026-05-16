@@ -24,9 +24,9 @@ Built by a certified **OCI 2025 Generative AI Professional** and **Autonomous Da
 
 * **Cloud:** Oracle Cloud Infrastructure (OCI)
 * **AI/LLM:** Gemini 3 Flash Preview (Primary) & TextBlob (Local NLP Fallback)
-* **Database:** Oracle Autonomous Database 23ai/26ai
-* **Language:** Python 3.x (Pandas, OCI SDK, Google-GenAI SDK)
-* **Visualization:** OCI Data Studio
+* **Database:** Oracle Autonomous Lakehouse 26ai
+* **Language:** Python 3.12 (Pandas, OCI SDK, Google-GenAI SDK)
+* **Visualization:** OCI Charts
 
 ---
 
@@ -60,4 +60,4 @@ The final output is a dynamic dashboard that identifies operational bottlenecks:
 ---
 
 ## 🎓 Author
-**Junie Rose** *Principal Technical Support Engineer | AI Data Architect* *Specializing in OCI Data Management & Generative AI Solutions.*
+**Junie Rose** *Principal Technical Support Engineer | Data Enghineer* *Specializing in OCI Data Management & Generative AI Solutions.*
