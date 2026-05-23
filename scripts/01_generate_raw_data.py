@@ -5,6 +5,7 @@ Description: Generates synthetic support ticket data for testing and analysis.
              feedback, regions, and agent response times.
 """
 
+import os
 import pandas as pd
 import random
 from datetime import datetime, timedelta
