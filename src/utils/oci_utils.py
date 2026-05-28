@@ -15,6 +15,7 @@ Features:
 from pathlib import Path
 import logging
 import os
+import platform
 
 from dotenv import load_dotenv
 import oci
@@ -26,16 +27,12 @@ import oci
 
 load_dotenv()
 
-OCI_CONFIG_PATH = os.getenv(
-    "OCI_CONFIG_PATH",
-    str(Path.home() / ".oci" / "config")
-)
+OCI_CONFIG_PROFILE = os.getenv("OCI_CONFIG_PROFILE")
 
-OCI_CONFIG_PROFILE = os.getenv(
-    "OCI_CONFIG_PROFILE",
-    "DEFAULT"
-)
-
+if platform.system() == "Windows":
+    OCI_CONFIG_PATH = os.getenv("OCI_CONFIG_PATH_WINDOWS")
+else:
+    OCI_CONFIG_PATH = os.getenv("OCI_CONFIG_PATH")
 
 # -------------------------------------------------------------------
 # Logging

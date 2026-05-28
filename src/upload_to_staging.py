@@ -15,7 +15,6 @@ Description:
 from datetime import datetime
 from pathlib import Path
 import logging
-import os
 import time
 
 from dotenv import load_dotenv
@@ -34,10 +33,9 @@ from utils.oci_utils import (
 
 RAW_DIR = Path("data/raw")
 RAW_FILE_PATTERN = "raw_support_tickets_*.csv"
-INPUT_FILE = next(RAW_DIR.glob(RAW_FILE_PATTERN))
 
 BUCKET_NAME = "bucket-tickets"
-OBJECT_NAME = f"raw/{INPUT_FILE.name}"
+RAW_PREFIX = "raw/"
 CONTENT_TYPE = "text/csv"
 
 
@@ -54,16 +52,30 @@ logger = logging.getLogger(__name__)
 
 
 # -------------------------------------------------------------------
+# Pipeline Utility Functions
+# -------------------------------------------------------------------
+
+def get_latest_raw_file() -> Path:
+
+    matching_files = sorted(
+        RAW_DIR.glob(RAW_FILE_PATTERN)
+    )
+
+    if not matching_files:
+        raise FileNotFoundError(
+            "No raw support ticket files found."
+        )
+
+    return matching_files[-1]
+
+# -------------------------------------------------------------------
 # Main Processing Logic
 # -------------------------------------------------------------------
 
 def load_to_staging() -> None:
     # Main upload workflow.
 
-    if not INPUT_FILE.exists():
-        raise FileNotFoundError(
-            f"Input file not found: {INPUT_FILE}"
-        )
+    input_file = get_latest_raw_file()
 
     start_time = time.time()
 
@@ -78,12 +90,14 @@ def load_to_staging() -> None:
 
     logger.info("Validated bucket: %s",bucket.data.name)
 
+    raw_object_name = (f"{RAW_PREFIX}{input_file.name}")
+
     upload_object(
         storage_client=storage_client,
         namespace=namespace,
         bucket_name=BUCKET_NAME,
-        object_name=OBJECT_NAME,
-        local_file=INPUT_FILE
+        object_name=raw_object_name,
+        local_file=input_file
     )
 
     elapsed_time = round(

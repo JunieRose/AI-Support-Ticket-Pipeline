@@ -1,0 +1,6 @@
+pandas>=2.0.0
+google-genai>=2.6.0
+textblob>=0.20.0
+python-dotenv>=1.2.2
+oracledb>=4.0.1
+oci>=2.176.0
