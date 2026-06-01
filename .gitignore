@@ -4,6 +4,24 @@ config
 *.pem
 .oci/
 
+# Python
+__pycache__/
+
+# Packaging
+*.egg-info/
+
+# Virtual environments
+venv/
+.venv/
+
+# Airflow
+airflow.db
+airflow-webserver.pid
+logs/
+
+# VS Code
+.vscode/
+
 # Ignore all CSV files everywhere
 *.csv
 
