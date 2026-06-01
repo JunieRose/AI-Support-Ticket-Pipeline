@@ -22,7 +22,7 @@ from dotenv import load_dotenv
 import oracledb
 import pandas as pd
 
-from utils.oci_utils import (
+from src.utils.oci_utils import (
     load_oci_config,
     create_storage_client,
     get_namespace,

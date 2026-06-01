@@ -20,7 +20,7 @@ import time
 from dotenv import load_dotenv
 import oci
 
-from utils.oci_utils import (
+from src.utils.oci_utils import (
     load_oci_config,
     create_storage_client,
     get_namespace,
