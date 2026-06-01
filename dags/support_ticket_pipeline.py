@@ -9,10 +9,10 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 
-from src.generate_raw_data import main as generate_raw_data_task
-from src.upload_to_staging import main as upload_to_staging_task
-from src.process_ai_enrichment import main as process_ai_enrichment_task
-from src.load_to_lakehouse import main as load_to_lakehouse_task
+from src.pipelines.generate_raw_data import main as generate_raw_data_task
+from src.pipelines.upload_to_staging import main as upload_to_staging_task
+from src.pipelines.process_ai_enrichment import main as process_ai_enrichment_task
+from src.pipelines.load_to_lakehouse import main as load_to_lakehouse_task
 
 
 default_args = {
