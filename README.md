@@ -23,6 +23,7 @@ The project follows a **Medallion Architecture** pattern: Bronze → Silver → 
 
 The pipeline is orchestrated through Apache Airflow, providing workflow scheduling, dependency management, and monitoring.
 
+![Airflow DAG](assets/airflow_dag_success.jpg)
 
 ---
 
