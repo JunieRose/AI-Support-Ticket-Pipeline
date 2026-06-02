@@ -26,4 +26,5 @@ logs/
 *.csv
 
 # But DO NOT ignore CSV files inside the data folder
-!data/*.csv
+!data/bronze/*.csv
+!data/silver/*.csv

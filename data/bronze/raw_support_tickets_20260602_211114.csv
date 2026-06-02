@@ -1,0 +1,11 @@
+ticket_id,created_at,customer_text,region,first_response_at
+INC-10001,2026-06-01 21:54:25,Excellent service! Agent helped me solving my Dashboard issue.,AU-SYDNEY,2026-06-02 01:43:19
+INC-10002,2026-06-02 01:19:53,Excellent service! Agent helped me solving my Admin Page issue.,CA-TORONTO,2026-06-02 09:22:30
+INC-10003,2026-06-02 12:43:00,I can't get successful response. REST API is returning 404 error.,JP-TOKYO,2026-06-03 12:27:41
+INC-10004,2026-06-02 01:20:49,Why is the Portal so slow today? This is affecting our work!,JP-TOKYO,2026-06-02 01:40:00
+INC-10005,2026-06-02 15:22:29,Why is the API so slow today? This is affecting our work!,AU-SYDNEY,2026-06-03 03:42:47
+INC-10006,2026-06-02 17:27:59,Excellent service! Agent helped me solving my Mobile App issue.,UK-LONDON,
+INC-10007,2026-06-01 23:12:24,How do I enable Dashboard feature? It is not available in the console.,JP-TOKYO,2026-06-02 13:04:19
+INC-10008,2026-06-02 18:19:07,I can't get successful response. REST API is returning Authentication Failed error.,UK-LONDON,2026-06-02 20:56:03
+INC-10009,2026-06-02 19:31:09,My account was disabled after multiple log in attempt. Please enable.,AU-SYDNEY,
+INC-10010,2026-06-02 07:20:52,How do I enable Mobile App feature? It is not available in the console.,AU-SYDNEY,2026-06-02 15:03:32
