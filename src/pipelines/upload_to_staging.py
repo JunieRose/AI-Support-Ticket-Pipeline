@@ -31,11 +31,11 @@ from src.utils.oci_utils import (
 # Configuration
 # -------------------------------------------------------------------
 
-RAW_DIR = Path("data/raw")
+RAW_DIR = Path("data/bronze")
 RAW_FILE_PATTERN = "raw_support_tickets_*.csv"
 
 BUCKET_NAME = "bucket-tickets"
-RAW_PREFIX = "raw/"
+RAW_PREFIX = "bronze/"
 CONTENT_TYPE = "text/csv"
 
 
@@ -109,6 +109,9 @@ def load_to_staging() -> None:
         "Staging upload completed in %s seconds.",
         elapsed_time
     )
+
+    input_file.unlink()
+    logger.info("Deleted local file: %s", input_file)
 
 def main() -> None:
     # Script entry point.

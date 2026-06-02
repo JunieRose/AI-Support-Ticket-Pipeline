@@ -25,7 +25,7 @@ import pandas as pd
 # -------------------------------------------------------------------
 
 RUN_TIMESTAMP = datetime.now().strftime("%Y%m%d_%H%M%S")
-OUTPUT_FILE = Path(f"data/raw/raw_support_tickets_{RUN_TIMESTAMP}.csv")
+OUTPUT_FILE = Path(f"data/bronze/raw_support_tickets_{RUN_TIMESTAMP}.csv")
 
 RECORD_COUNT = 10
 BASE_TICKET_ID = 10001

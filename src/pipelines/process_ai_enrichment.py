@@ -42,7 +42,7 @@ from src.utils.oci_utils import (
 # -------------------------------------------------------------------
 
 BUCKET_NAME = "bucket-tickets"
-RAW_PREFIX = "raw/"
+RAW_PREFIX = "bronze/"
 SILVER_PREFIX = "silver/"
 
 TMP_DIR = Path("data/tmp")
@@ -379,6 +379,9 @@ def process_tickets() -> None:
     "Fallback enrichments: %s",
     (enriched_df["analysis_source"] == "textblob").sum()
   )
+
+  local_raw_file.unlink()
+  logger.info("Deleted local file: %s", local_raw_file)
 
 def main() -> None:
 
