@@ -31,13 +31,9 @@ from src.utils.oci_utils import (
 # Configuration
 # -------------------------------------------------------------------
 
-RAW_DIR = Path("data/bronze")
-RAW_FILE_PATTERN = "raw_support_tickets_*.csv"
-
 BUCKET_NAME = "bucket-tickets"
 RAW_PREFIX = "bronze/"
 CONTENT_TYPE = "text/csv"
-
 
 # -------------------------------------------------------------------
 # Logging Configuration
@@ -51,31 +47,15 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# -------------------------------------------------------------------
-# Pipeline Utility Functions
-# -------------------------------------------------------------------
-
-def get_latest_raw_file() -> Path:
-
-    matching_files = sorted(
-        RAW_DIR.glob(RAW_FILE_PATTERN)
-    )
-
-    if not matching_files:
-        raise FileNotFoundError(
-            "No raw support ticket files found."
-        )
-
-    return matching_files[-1]
 
 # -------------------------------------------------------------------
 # Main Processing Logic
 # -------------------------------------------------------------------
 
-def load_to_staging() -> None:
+def load_to_staging(pipeline_timestamp: str) -> None:
     # Main upload workflow.
 
-    input_file = get_latest_raw_file()
+    input_file = Path(f"data/bronze/raw_support_tickets_{pipeline_timestamp}.csv")
 
     start_time = time.time()
 
@@ -113,11 +93,11 @@ def load_to_staging() -> None:
     input_file.unlink()
     logger.info("Deleted local file: %s", input_file)
 
-def main() -> None:
+def main(pipeline_timestamp: str) -> None:
     # Script entry point.
 
     try:
-        load_to_staging()
+        load_to_staging(pipeline_timestamp)
 
     except oci.exceptions.ServiceError as service_error:
 

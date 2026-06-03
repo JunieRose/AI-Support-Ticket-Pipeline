@@ -24,9 +24,6 @@ import pandas as pd
 # Configuration
 # -------------------------------------------------------------------
 
-RUN_TIMESTAMP = datetime.now().strftime("%Y%m%d_%H%M%S")
-OUTPUT_FILE = Path(f"data/bronze/raw_support_tickets_{RUN_TIMESTAMP}.csv")
-
 RECORD_COUNT = 10
 BASE_TICKET_ID = 10001
 RANDOM_SEED = 42
@@ -84,8 +81,15 @@ REGIONS = [
     "JP-TOKYO"
 ]
 
+def generate_pipeline_timestamp() -> str:
+    return datetime.now().strftime("%Y%m%d_%H%M%S")
+
+def build_output_file(pipeline_timestamp: str) -> Path:
+    return Path(f"data/bronze/raw_support_tickets_{pipeline_timestamp}.csv")
+
+
 def generate_random_timestamp() -> datetime:
-    # Generate a random timestamp within the last 24 hours.
+    # Random timestamp within the last 24 hours for created_at field.
 
     return datetime.now() - timedelta(
       seconds=random.randint(0, 86400)
@@ -146,6 +150,7 @@ def generate_support_data(record_count: int = RECORD_COUNT) -> pd.DataFrame:
 
     return pd.DataFrame(ticket_data)
 
+
 def save_to_csv(dataframe: pd.DataFrame, output_file: Path) -> None:
   
     # Create parent directories if they do not exist
@@ -160,8 +165,11 @@ def save_to_csv(dataframe: pd.DataFrame, output_file: Path) -> None:
     )
 
 
-def main() -> None:
+def main() -> str:
     # Main execution entry point.
+
+    pipeline_timestamp = generate_pipeline_timestamp()
+    output_file = build_output_file(pipeline_timestamp)
 
     try:
 
@@ -172,12 +180,14 @@ def main() -> None:
 
       save_to_csv(
         dataframe=support_data,
-        output_file=OUTPUT_FILE
+        output_file=output_file
       )
 
     except Exception as error:
       logger.exception("Pipeline execution failed: %s", error)
       raise
+
+    return pipeline_timestamp
 
 if __name__ == "__main__":
     main()

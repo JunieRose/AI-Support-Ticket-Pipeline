@@ -24,6 +24,38 @@ default_args = {
     "retry_delay": timedelta(minutes=2),
 }
 
+def upload_wrapper(ti, **kwargs):
+
+    timestamp = ti.xcom_pull(
+        task_ids="generate_raw_data"
+    )
+
+    upload_to_staging_task(
+        pipeline_timestamp=timestamp
+    )
+
+
+def enrich_wrapper(ti, **kwargs):
+
+    timestamp = ti.xcom_pull(
+        task_ids="generate_raw_data"
+    )
+
+    process_ai_enrichment_task(
+        pipeline_timestamp=timestamp
+    )
+
+
+def lakehouse_wrapper(ti, **kwargs):
+
+    timestamp = ti.xcom_pull(
+        task_ids="generate_raw_data"
+    )
+
+    load_to_lakehouse_task(
+        pipeline_timestamp=timestamp
+    )
+
 
 with DAG(
     dag_id="support_ticket_pipeline",
@@ -40,24 +72,24 @@ with DAG(
         python_callable=generate_raw_data_task
     )
 
-    load_to_staging = PythonOperator(
+    upload_to_staging = PythonOperator(
         task_id="upload_to_staging",
-        python_callable=upload_to_staging_task
+        python_callable=upload_wrapper
     )
 
     process_ai_enrichment = PythonOperator(
         task_id="process_ai_enrichment",
-        python_callable=process_ai_enrichment_task
+        python_callable=enrich_wrapper
     )
 
     load_to_lakehouse = PythonOperator(
         task_id="load_to_lakehouse",
-        python_callable=load_to_lakehouse_task
+        python_callable=lakehouse_wrapper
     )
 
     (
         generate_raw_data
-        >> load_to_staging
+        >> upload_to_staging
         >> process_ai_enrichment
         >> load_to_lakehouse
     )

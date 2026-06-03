@@ -15,9 +15,9 @@ Features:
 from pathlib import Path
 import logging
 import os
-import platform
 
 from dotenv import load_dotenv
+import oracledb
 import oci
 
 
@@ -26,6 +26,10 @@ import oci
 # -------------------------------------------------------------------
 
 load_dotenv()
+
+DB_USER = os.getenv("OCI_DB_USER")
+DB_PASSWORD = os.getenv("OCI_DB_PASSWORD")
+DB_DSN = os.getenv("OCI_DB_DSN")
 
 OCI_CONFIG_PROFILE = os.getenv("OCI_CONFIG_PROFILE")
 OCI_CONFIG_PATH = os.getenv("OCI_CONFIG_PATH")
@@ -38,8 +42,27 @@ logger = logging.getLogger(__name__)
 
 
 # -------------------------------------------------------------------
-# OCI Configuration
+# DB Connection and OCI COnfiguration
 # -------------------------------------------------------------------
+
+def get_database_connection() -> oracledb.Connection:
+  # Create Oracle database connection
+
+  if not all([DB_USER, DB_PASSWORD, DB_DSN]):
+   raise ValueError(
+      "Missing required Oracle database environment variables."
+   )
+
+  logger.info(
+      "Connecting to Oracle Autonomous Database..."
+  )
+
+  return oracledb.connect(
+      user=DB_USER,
+      password=DB_PASSWORD,
+      dsn=DB_DSN
+  )
+
 
 def load_oci_config() -> dict:
 

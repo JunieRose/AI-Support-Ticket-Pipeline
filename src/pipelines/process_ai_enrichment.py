@@ -19,7 +19,6 @@ Description:
 from pathlib import Path
 import logging
 import os
-import re
 import time
 
 from dotenv import load_dotenv
@@ -32,7 +31,6 @@ from src.utils.oci_utils import (
     load_oci_config,
     create_storage_client,
     get_namespace,
-    get_latest_object,
     download_object,
     upload_object
 )
@@ -48,10 +46,9 @@ SILVER_PREFIX = "silver/"
 TMP_DIR = Path("data/tmp")
 SILVER_DIR = Path("data/silver")
 
-RAW_FILE_PATTERN = r"raw_support_tickets_(\d{8}_\d{6})\.csv"
 CONTENT_TYPE = "text/csv"
 
-MODEL_NAME = "gemini-3-flash-preview"
+MODEL_NAME = "gemini-2.5-flash"
 API_DELAY_SECONDS = 3
 MAX_RETRIES = 3
 
@@ -78,38 +75,6 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
-
-# -------------------------------------------------------------------
-# Pipeline Utility Functions
-# -------------------------------------------------------------------
-
-def extract_timestamp_from_filename(
-    filename: str
-) -> str:
-    """
-    Extract pipeline timestamp from raw filename.
-    """
-
-    match = re.search(
-        RAW_FILE_PATTERN,
-        filename
-    )
-
-    if not match:
-        raise ValueError(
-            f"Could not extract timestamp from: {filename}"
-        )
-
-    return match.group(1)
-
-def generate_silver_filename(
-    timestamp: str
-) -> str:
-
-    return (
-        f"enriched_support_tickets_{timestamp}.csv"
-    )
-
 
 
 # -------------------------------------------------------------------
@@ -232,7 +197,7 @@ def enrich_ticket(client: genai.Client, text: str) -> dict:
     "analysis_source": "textblob"
   }
 
-def process_tickets() -> None:
+def process_tickets(pipeline_timestamp: str) -> None:
   # Main execution logic to read, analyze, and save data.
 
   start_time = time.time()
@@ -245,33 +210,16 @@ def process_tickets() -> None:
   storage_client = create_storage_client(config)
   namespace = get_namespace(storage_client)
 
-  # ---------------------------------------------------------------
-  # Retrieve Latest Raw Dataset
-  # ---------------------------------------------------------------
 
-  latest_object = get_latest_object(
-    storage_client=storage_client,
-    namespace=namespace,
-    bucket_name=BUCKET_NAME,
-    prefix=RAW_PREFIX,
-    filename_pattern="raw_support_tickets_"
-  )
+  raw_object_name = (f"bronze/raw_support_tickets_{pipeline_timestamp}.csv")
 
-  raw_filename = Path(latest_object).name
-
-  pipeline_timestamp = (
-      extract_timestamp_from_filename(
-          raw_filename
-      )
-  )
-
-  local_raw_file = TMP_DIR / raw_filename
+  local_raw_file = Path(f"{TMP_DIR}/raw_support_tickets_{pipeline_timestamp}.csv")
 
   download_object(
       storage_client=storage_client,
       namespace=namespace,
       bucket_name=BUCKET_NAME,
-      object_name=latest_object,
+      object_name=raw_object_name,
       download_path=local_raw_file
   )
 
@@ -320,9 +268,7 @@ def process_tickets() -> None:
   # Save Enriched Dataset
   # ---------------------------------------------------------------
 
-  silver_filename = generate_silver_filename(
-      pipeline_timestamp
-  )
+  silver_filename = (f"enriched_support_tickets_{pipeline_timestamp}.csv")
 
   local_silver_file = (
       SILVER_DIR / silver_filename
@@ -380,13 +326,15 @@ def process_tickets() -> None:
     (enriched_df["analysis_source"] == "textblob").sum()
   )
 
+  logger.info("Clean up")
+
   local_raw_file.unlink()
   logger.info("Deleted local file: %s", local_raw_file)
 
-def main() -> None:
+def main(pipeline_timestamp: str) -> None:
 
   try:
-    process_tickets()
+    process_tickets(pipeline_timestamp)
 
   except Exception as error:
     logger.exception(

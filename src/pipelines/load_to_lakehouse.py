@@ -15,7 +15,6 @@ Description:
 from pathlib import Path
 import logging
 import os
-import re
 import time
 
 from dotenv import load_dotenv
@@ -23,10 +22,10 @@ import oracledb
 import pandas as pd
 
 from src.utils.oci_utils import (
+    get_database_connection,
     load_oci_config,
     create_storage_client,
     get_namespace,
-    get_latest_object,
     download_object
 )
 
@@ -36,13 +35,9 @@ from src.utils.oci_utils import (
 
 BUCKET_NAME = "bucket-tickets"
 SILVER_PREFIX = "silver/"
-FILENAME_PATTERN = "enriched_support_tickets_"
-
 TMP_DIR = Path("data/tmp")
 
-ENRICHED_FILE_PATTERN = r"enriched_support_tickets_(\d{8}_\d{6})\.csv"
 TARGET_TABLE = "support_tickets"
-
 REQUIRED_COLUMNS = [
   "ticket_id",
   "created_at",
@@ -55,24 +50,6 @@ REQUIRED_COLUMNS = [
 ]
 
 # -------------------------------------------------------------------
-# Environment Variables
-# -------------------------------------------------------------------
-
-load_dotenv()
-DB_USER = os.getenv("OCI_DB_USER")
-DB_PASSWORD = os.getenv("OCI_DB_PASSWORD")
-DB_DSN = os.getenv("OCI_DB_DSN")
-
-# -------------------------------------------------------------------
-# Validation
-# -------------------------------------------------------------------
-
-if not all([DB_USER, DB_PASSWORD, DB_DSN]):
-   raise ValueError(
-      "Missing required Oracle database environment variables."
-   )
-
-# -------------------------------------------------------------------
 # Logging Configuration
 # -------------------------------------------------------------------
 
@@ -83,26 +60,6 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-
-# -------------------------------------------------------------------
-# Pipeline Utility Functions
-# -------------------------------------------------------------------
-
-def extract_timestamp_from_filename(
-    filename: str
-) -> str:
-
-    match = re.search(
-        ENRICHED_FILE_PATTERN,
-        filename
-    )
-
-    if not match:
-        raise ValueError(
-            f"Could not extract timestamp from: {filename}"
-        )
-
-    return match.group(1)
 
 # -------------------------------------------------------------------
 # Data Validation
@@ -131,18 +88,6 @@ def validate_input_data(dataframe: pd.DataFrame) -> None:
 # Database Functions
 # -------------------------------------------------------------------
 
-def get_database_connection() -> oracledb.Connection:
-  # Create Oracle database connection.
-
-  logger.info(
-      "Connecting to Oracle Autonomous Database..."
-  )
-
-  return oracledb.connect(
-      user=DB_USER,
-      password=DB_PASSWORD,
-      dsn=DB_DSN
-  )
 
 def prepare_records(dataframe: pd.DataFrame) -> list[tuple]:
   # Convert DataFrame into Oracle-compatible insert records.
@@ -190,7 +135,7 @@ def execute_bulk_insert(cursor: oracledb.Cursor, records: list[tuple]) -> int:
 # Main Processing Logic
 # -------------------------------------------------------------------
 
-def load_data_to_lakehouse() -> None:
+def load_data_to_lakehouse(pipeline_timestamp: str) -> None:
   # Main database loading workflow.
 
   # ---------------------------------------------------------------
@@ -202,32 +147,18 @@ def load_data_to_lakehouse() -> None:
   namespace = get_namespace(storage_client)
 
   # ---------------------------------------------------------------
-  # Retrieve Latest Raw Dataset
+  # Retrieve Object from OCI
   # ---------------------------------------------------------------
 
-  latest_object = get_latest_object(
-    storage_client=storage_client,
-    namespace=namespace,
-    bucket_name=BUCKET_NAME,
-    prefix=SILVER_PREFIX,
-    filename_pattern=FILENAME_PATTERN
-  )
+  silver_object_name = (f"{SILVER_PREFIX}enriched_support_tickets_{pipeline_timestamp}.csv")
 
-  silver_filename = Path(latest_object).name
-
-  pipeline_timestamp = (
-      extract_timestamp_from_filename(
-          silver_filename
-      )
-  )
-
-  local_enriched_file = TMP_DIR / silver_filename
+  local_enriched_file = Path(f"{TMP_DIR}/enriched_support_tickets_{pipeline_timestamp}.csv")
 
   download_object(
       storage_client=storage_client,
       namespace=namespace,
       bucket_name=BUCKET_NAME,
-      object_name=latest_object,
+      object_name=silver_object_name,
       download_path=local_enriched_file
   )
 
@@ -312,11 +243,11 @@ def load_data_to_lakehouse() -> None:
       )
 
 
-def main() -> None:
+def main(pipeline_timestamp: str) -> None:
   # Script entry point.
 
   try:
-     load_data_to_lakehouse()
+     load_data_to_lakehouse(pipeline_timestamp)
 
   except Exception as error:
     logger.exception(
