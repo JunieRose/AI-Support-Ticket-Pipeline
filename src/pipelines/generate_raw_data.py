@@ -45,14 +45,14 @@ logger = logging.getLogger(__name__)
 # -------------------------------------------------------------------
 
 TEMPLATES = [
-    "I was charged twice for my {feature} subscription. Refund please.",
-    "Excellent service! Agent helped me solving my {feature} issue.",
+    "I was charged twice for my {feature} subscription and I need a refund immediately.",
+    "Excellent service! Agent helped me solving my {feature} issue. Kudos!",
     "How do I reset my password for the {feature}?",
     "My account was disabled after multiple log in attempt. Please enable.",
     "How do I enable {feature} feature? It is not available in the console.",
     "Some of the user's can't access {feature}. Getting {error} error.",
-    "Why is the {feature} so slow today? This is affecting our work!",
-    "The {feature} is not responding. It is stuck in loading and we are getting so many complains!",
+    "The {feature} so slow today and returning different errors. This is affecting our workflow!",
+    "The {feature} is not responding. It is stuck in loading and we are getting so many complains. Please fix this ASAP.",
     "I can't get successful response. REST API is returning {error} error.",
     "ALL USERS can't access {feature} because it keeps crashing. The This is negatively impacting our productivity!"
 ]

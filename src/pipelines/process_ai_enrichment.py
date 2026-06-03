@@ -83,7 +83,7 @@ logger = logging.getLogger(__name__)
 
 CATEGORY_MAPPING = {
     "How-To Question": ["how do i", "how to", "help me with"],
-    "Technical": ["error", "broken", "bug", "404", "429", "500", "crash", "timeout", "outage"],
+    "Technical": ["error", "broken", "bug", "404", "429", "500", "crash", "timeout", "loading"],
     "Account": ["password", "login", "account", "reset", "disable"],
     "Billing": ["bill", "charge", "refund", "money", "invoice"]
     # Default category will be Feedback
