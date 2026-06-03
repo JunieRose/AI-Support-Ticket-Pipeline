@@ -24,7 +24,7 @@ import pandas as pd
 # Configuration
 # -------------------------------------------------------------------
 
-RECORD_COUNT = 10
+RECORD_COUNT = 100
 BASE_TICKET_ID = 10001
 RANDOM_SEED = 42
 RESPONSE_RATE = 0.8  # 80% of tickets will have a response, 20% will be unanswered

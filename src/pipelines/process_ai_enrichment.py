@@ -162,7 +162,7 @@ def get_ai_analysis(client: genai.Client, text: str) -> tuple[float, str]:
 def enrich_ticket(client: genai.Client, text: str) -> dict:
   # Enrich a single support ticket record.
 
-  for atempt in range(1, MAX_RETRIES + 1):
+  for attempt in range(1, MAX_RETRIES + 1):
 
     try:
       sentiment, category = get_ai_analysis(client, text)
@@ -177,12 +177,8 @@ def enrich_ticket(client: genai.Client, text: str) -> dict:
       }
     
     except Exception as error:
-      logger.warning(
-        "AI attempt %s failed: %s",
-        atempt,
-        str(error)[:22]
-      )
-      time.sleep(2)
+      logger.warning("AI attempt %s failed: %s", attempt, str(error)[:22])
+      time.sleep(2**attempt)  # Exponential backoff
 
   logger.warning(
     "Using NLP fallback after retry exhaustion."
