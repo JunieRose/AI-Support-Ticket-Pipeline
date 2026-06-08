@@ -242,6 +242,9 @@ def load_data_to_lakehouse(pipeline_timestamp: str) -> None:
           "Database connection closed."
       )
 
+      local_enriched_file.unlink()
+      logger.info("Clean up: Deleted local file %s", local_enriched_file)
+
 
 def main(pipeline_timestamp: str) -> None:
   # Script entry point.

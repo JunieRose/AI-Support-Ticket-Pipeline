@@ -48,7 +48,7 @@ SILVER_DIR = Path("data/silver")
 
 CONTENT_TYPE = "text/csv"
 
-MODEL_NAME = "gemini-2.5-flash"
+MODEL_NAME = "gemini-3-flash-preview"
 API_DELAY_SECONDS = 3
 MAX_RETRIES = 3
 
@@ -83,9 +83,9 @@ logger = logging.getLogger(__name__)
 
 CATEGORY_MAPPING = {
     "How-To Question": ["how do i", "how to", "help me with"],
-    "Technical": ["error", "broken", "bug", "404", "429", "500", "crash", "timeout", "loading"],
+    "Technical": ["error", "broken", "503", "500", "504", "401", "crash", "down", "maintenance", "unavailable"],
     "Account": ["password", "login", "account", "reset", "disable"],
-    "Billing": ["bill", "charge", "refund", "money", "invoice"]
+    "Billing": ["bill", "charge", "refund", "invoice"]
     # Default category will be Feedback
 }
 
@@ -119,7 +119,7 @@ def build_prompt(text: str) -> str:
   
   Rules:
   - sentiment_score: a number between -1.0 and 1.0
-  - category_name: one of [Technical, Account, Billing, How-To Question, Feedback]
+  - category_name: one of [Feedback, Technical, Account, Billing, How-To Question]
   
   Ticket: "{text}"
   """
@@ -322,10 +322,8 @@ def process_tickets(pipeline_timestamp: str) -> None:
     (enriched_df["analysis_source"] == "textblob").sum()
   )
 
-  logger.info("Clean up")
-
   local_raw_file.unlink()
-  logger.info("Deleted local file: %s", local_raw_file)
+  logger.info("Clean up: Deleted local file %s", local_raw_file)
 
 def main(pipeline_timestamp: str) -> None:
 

@@ -1,5 +1,25 @@
 /* 
-    AI Categorization vs. Customer Sentiment
+    Volume by Severity & Operational Efficiency
+    Goal: Monitor ticket distribution and ensure urgent issues are prioritized.
+*/
+
+SELECT 
+    severity,
+    COUNT(*) AS ticket_count,
+    COUNT(first_response_at) AS responded_tickets,
+    COUNT(*) - COUNT(first_response_at) AS unanswered_tickets,
+    ROUND(AVG(response_latency_hrs), 2) AS avg_latency_hrs
+FROM support_tickets
+GROUP BY severity
+ORDER BY CASE severity
+    WHEN 'P1-URGENT' THEN 1
+    WHEN 'P2-HIGH' THEN 2
+    WHEN 'P3-NORMAL' THEN 3
+    ELSE 4
+END;
+
+/* 
+    Category vs. Sentiment Analysis
     Goal: Identify which ticket categories are driving negative customer experiences.
 */
 
@@ -12,25 +32,8 @@ GROUP BY category
 ORDER BY avg_sentiment_score ASC;
 
 /* 
-    Volume by Severity & Operational Efficiency
-    Goal: Monitor ticket distribution and ensure urgent issues are prioritized.
-*/
-
-SELECT 
-    severity, 
-    COUNT(*) as ticket_count,
-    ROUND(AVG(response_latency_hrs), 2) as avg_latency_hrs
-FROM support_tickets
-GROUP BY severity
-ORDER BY CASE severity 
-    WHEN 'P1-URGENT' THEN 1 
-    WHEN 'P2-HIGH' THEN 2 
-    WHEN 'P3-NORMAL' THEN 3 
-    ELSE 4 END;
-
-/* 
     Escalation Risk by Region
-    Goal: Geographical breakdown of high-risk tickets to identify regional service gaps.
+    Goal: Breakdown of high-risk tickets to identify regional service gaps.
 */
 
 SELECT 
@@ -43,36 +46,42 @@ GROUP BY region
 ORDER BY critical_count DESC
 
 /* 
-    SLA First Response Performance
+    Open vs. Responded Tickets
+    Goal: Track the proportion of tickets that have received a response to identify potential backlog issues.
+*/
+
+SELECT
+    CASE
+        WHEN first_response_at IS NULL THEN 'Open'
+        ELSE 'Responded'
+    END AS ticket_status,
+    COUNT(*) AS total_tickets
+FROM support_tickets
+GROUP BY
+    CASE
+        WHEN first_response_at IS NULL THEN 'Open'
+        ELSE 'Responded'
+    END
+
+/* 
+    AI Processing Source Monitoring
     Goal: Track adherence to response time targets.
 */
 
-SELECT 
-    CASE 
-        WHEN response_latency_hrs <= 1 THEN 'Under 1hr'
-        WHEN response_latency_hrs <= 4 THEN '1-4hrs (Target)'
-        WHEN response_latency_hrs <= 8 THEN '4-8hrs (Delayed)'
-        ELSE 'Over 8hrs (SLA Breach)'
-    END as response_window,
-    COUNT(*) as ticket_count
+SELECT
+    analysis_source,
+    COUNT(*) AS total_records
 FROM support_tickets
-GROUP BY 
-    CASE 
-        WHEN response_latency_hrs <= 1 THEN 'Under 1hr'
-        WHEN response_latency_hrs <= 4 THEN '1-4hrs (Target)'
-        WHEN response_latency_hrs <= 8 THEN '4-8hrs (Delayed)'
-        ELSE 'Over 8hrs (SLA Breach)'
-    END
-ORDER BY MIN(response_latency_hrs);
+GROUP BY analysis_source
 
 /* 
-    Daily Ticket Trend
-    Goal: Visualize daily volume spikes to assist in workforce planning.
+    Hourly Ticket Trend
+    Goal: Visualize hourly volume spikes to assist in workforce planning.
 */
 
 SELECT 
-    TO_CHAR(created_at, 'YYYY-MM-DD') as created_date, 
-    COUNT(*) as daily_volume
+    TO_CHAR(TRUNC(created_at, 'HH'), 'YYYY-MM-DD HH24:MI') AS created_date, 
+    count(*)
 FROM SUPPORT_TICKETS 
-GROUP BY created_date 
-ORDER BY created_date;
+GROUP BY created_date
+ORDER BY created_date

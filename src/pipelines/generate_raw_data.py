@@ -26,7 +26,7 @@ import pandas as pd
 
 RECORD_COUNT = 100
 BASE_TICKET_ID = 10001
-RANDOM_SEED = 42
+RANDOM_SEED = 37
 RESPONSE_RATE = 0.8  # 80% of tickets will have a response, 20% will be unanswered
 
 # -------------------------------------------------------------------
@@ -45,32 +45,31 @@ logger = logging.getLogger(__name__)
 # -------------------------------------------------------------------
 
 TEMPLATES = [
-    "I was charged twice for my {feature} subscription and I need a refund immediately.",
-    "Excellent service! Agent helped me solving my {feature} issue. Kudos!",
-    "How do I reset my password for the {feature}?",
+    "I was double charged for my {feature} subscription. When will I get my refund? It's been months now.",
+    "I have terminated my subscription but I am continuosly getting invoices. This is unacceptable!",
+    "Excellent service! Patrice was patient and demonstrated expertise in resolving my {feature} issue. Appreciate it!",
     "My account was disabled after multiple log in attempt. Please enable.",
-    "How do I enable {feature} feature? It is not available in the console.",
-    "Some of the user's can't access {feature}. Getting {error} error.",
-    "The {feature} so slow today and returning different errors. This is affecting our workflow!",
-    "The {feature} is not responding. It is stuck in loading and we are getting so many complains. Please fix this ASAP.",
-    "I can't get successful response. REST API is returning {error} error.",
-    "ALL USERS can't access {feature} because it keeps crashing. The This is negatively impacting our productivity!"
+    "How do I reset my Admin password for the {feature}?",
+    "How do I enable {feature} feature? I can't find it in the settings. Please share the documentation link.",
+    "Our customers is unable to reach us becase the {feature} is down. Give us a call and treat this with urgency.",
+    "ALL USERS can't access {feature} because it keeps crashing. This is negatively impacting our productivity!",
+    "Our system keeps is down, it keeps redirecting to Maintenance Page. We are losing customers because of this!",
+    "My {feature} is unavailable for hours. I have a critical deadline and this is causing me a lot of stress."
 ]
 
 FEATURES = [
     "Dashboard",
     "Portal",
-    "API",
+    "Notification System",
     "Mobile App",
     "Admin Page"
 ]
 
 ERRORS = [
-    "404",
-    "429 Too Many Requests",
+    "503 Service Unavailable",
     "500 Internal Server",
-    "Timeout",
-    "Authentication Failed"
+    "504 Gateway Timeout",
+    "401 Unauthorized"
 ]
 
 REGIONS = [
