@@ -29,6 +29,8 @@ BASE_TICKET_ID = 10001
 RANDOM_SEED = 37
 RESPONSE_RATE = 0.8  # 80% of tickets will have a response, 20% will be unanswered
 
+random.seed(RANDOM_SEED)
+
 # -------------------------------------------------------------------
 # Logging Configuration
 # -------------------------------------------------------------------
@@ -80,42 +82,44 @@ REGIONS = [
     "JP-TOKYO"
 ]
 
+
+# -------------------------------------------------------------------
+# Helper Functions
+# -------------------------------------------------------------------
+
 def generate_pipeline_timestamp() -> str:
+    """Return a timestamp string for use in filenames."""
     return datetime.now().strftime("%Y%m%d_%H%M%S")
 
+
 def build_output_file(pipeline_timestamp: str) -> Path:
+    """Resolve the bronze-layer output path for a given run timestamp."""
     return Path(f"data/bronze/raw_support_tickets_{pipeline_timestamp}.csv")
 
 
 def generate_random_timestamp() -> datetime:
-    # Random timestamp within the last 24 hours for created_at field.
-
-    return datetime.now() - timedelta(
-      seconds=random.randint(0, 86400)
-    )
+    """Return a random timestamp within the last 24 hours."""
+    return datetime.now() - timedelta(seconds=random.randint(0, 86400))
 
 
 def simulate_first_response(created_at: datetime):
-    # Simulate unresolved tickets with missing first response
-    
-    has_response = random.random() < RESPONSE_RATE
+    """
+    Simulate whether a ticket received a first response.
 
-    if has_response:
-      first_response_at = created_at + timedelta(
-          seconds=random.randint(300, 86400)
-      )
-
-      first_response_value = first_response_at.strftime(
-          "%Y-%m-%d %H:%M:%S"
-      )
-    else:
-      first_response_value = None
+    Returns a formatted timestamp string for responded tickets,
+    or None for the ~20 % that remain unanswered.
+    """
     
-    return first_response_value
+    if random.random() < RESPONSE_RATE:
+        first_response_at = created_at + timedelta(
+            seconds=random.randint(300, 86400)
+        )
+        return first_response_at.strftime("%Y-%m-%d %H:%M:%S")
+    return None
 
 
 def generate_customer_text() -> str:
-    # Generate randomized customer feedback text using predefined templates and placeholder values.
+    """Generate randomized customer feedback text using predefined templates and placeholder values."""
     
     return random.choice(TEMPLATES).format(
       feature=random.choice(FEATURES),
@@ -123,10 +127,13 @@ def generate_customer_text() -> str:
     )
 
 
+# -------------------------------------------------------------------
+# Core Data Generation
+# -------------------------------------------------------------------
+
 def generate_support_data(record_count: int = RECORD_COUNT) -> pd.DataFrame:
-    # Main function to generate synthetic support ticket data and save it as a CSV file.
-    
-    logger.info("Generating %s synthetic support ticket records...", RECORD_COUNT)
+    """Main function to generate synthetic support ticket records."""
+    logger.info("Generating %s synthetic support ticket records...", record_count)
 
     ticket_data = []
 
@@ -138,55 +145,51 @@ def generate_support_data(record_count: int = RECORD_COUNT) -> pd.DataFrame:
       
       # Store ticket record
       ticket_data.append(
-        {
-          "ticket_id": ticket_id,
-          "created_at": created_at.strftime("%Y-%m-%d %H:%M:%S"),
-          "customer_text": generate_customer_text(),
-          "region": random.choice(REGIONS),
-          "first_response_at": simulate_first_response(created_at)
-        }
+          {
+              "ticket_id": ticket_id,
+              "created_at": created_at.strftime("%Y-%m-%d %H:%M:%S"),
+              "customer_text": generate_customer_text(),
+              "region": random.choice(REGIONS),
+              "first_response_at": simulate_first_response(created_at)
+          }
       )
 
     return pd.DataFrame(ticket_data)
 
 
 def save_to_csv(dataframe: pd.DataFrame, output_file: Path) -> None:
-  
-    # Create parent directories if they do not exist
+    """Persist a DataFrame to CSV, creating parent directories as needed."""
     output_file.parent.mkdir(parents=True, exist_ok=True)
-
     dataframe.to_csv(output_file, index=False)
-
     logger.info(
         "Successfully generated %s records and saved to %s",
         len(dataframe),
         output_file
     )
 
+# -------------------------------------------------------------------
+# Entry Point
+# -------------------------------------------------------------------
 
 def main() -> str:
-    # Main execution entry point.
+    """
+    Pipeline entry point — generates data and returns the run timestamp.
 
+    The timestamp is pushed to Airflow XCom automatically when this
+    function is used as a PythonOperator callable.
+    """
     pipeline_timestamp = generate_pipeline_timestamp()
     output_file = build_output_file(pipeline_timestamp)
 
     try:
-
-      # Set random seed for reproducibility
-      random.seed(RANDOM_SEED)
-
-      support_data = generate_support_data()
-
-      save_to_csv(
-        dataframe=support_data,
-        output_file=output_file
-      )
-
+        support_data = generate_support_data()
+        save_to_csv(dataframe=support_data, output_file=output_file)
     except Exception as error:
-      logger.exception("Pipeline execution failed: %s", error)
-      raise
+        logger.exception("Pipeline execution failed: %s", error)
+        raise
 
     return pipeline_timestamp
+
 
 if __name__ == "__main__":
     main()
