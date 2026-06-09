@@ -57,9 +57,9 @@ The final output is a dynamic dashboard that identifies operational bottlenecks:
 ![Business Dashboard](assets/business_dashboard.jpg)
 
 ### **Key Findings:**
-* **SLA Criticality:** 61% of tickets exceeded the 8-hour response window, highlighting the need for the AI prioritization logic implemented here.
-* **Emotional Hotspots:** Technical and Account-related tickets show the lowest sentiment, suggesting a need for targeted documentation improvements.
-* **Regional Strategy:** Identified high-risk volumes in the CA-TORONTO and PH-NCR regions for staffing optimization.
+* **Unresolved Ticket Risk:** Approximately 20% of support tickets remain unanswered, exposing potential SLA breaches and customer satisfaction risks. The pipeline surfaces these tickets early for proactive intervention.
+* **Customer Experience Hotspots:** AI-driven sentiment analysis identified **Technical** and **Billing** issues as the primary sources of negative customer sentiment, enabling support teams to focus improvement efforts on the areas with the greatest customer impact.
+* **Operational Resiliency:** The enrichment process successfully maintained analytics coverage through a combination of **Gemini AI** and **local NLP fallback processing**, demonstrating a fault-tolerant architecture capable of delivering business insights even during external AI service disruptions.
 
 ---
 
@@ -70,17 +70,6 @@ The final output is a dynamic dashboard that identifies operational bottlenecks:
 * `/assets`: Project diagrams and dashboard screenshots.
 * `/sql`: DDL for table creation with Virtual Columns and reporting queries.
 * `/data`: Local raw, temporary, and enriched datasets used during development.
-
----
-
-## 🎯 Key Engineering Outcomes
-
-* Designed and implemented an end-to-end Medallion Architecture pipeline.
-* Integrated Generative AI into a production-style enrichment workflow.
-* Orchestrated the pipeline using Apache Airflow.
-* Implemented resilient fallback processing to handle AI service failures.
-* Leveraged Oracle Virtual Columns to centralize business logic within the database layer.
-* Delivered business-ready dashboards for SLA monitoring and escalation risk analysis.
 
 ---
 
