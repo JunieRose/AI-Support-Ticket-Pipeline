@@ -1,3 +1,13 @@
+"""
+DAG: support_ticket_pipeline
+
+End-to-end support ticket pipeline:
+  1. generate_raw_data   — Generates synthetic ticket CSV and upload to OCI
+  2. validate_raw_data   — Creates validated and quarantine CSV
+  3. process_ai_enrichment — Enriches tickets via Gemini / TextBlob
+  4. load_to_lakehouse   — Merges enriched data into Oracle DB
+"""
+
 import sys
 from pathlib import Path
 
@@ -10,7 +20,7 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 
 from src.pipelines.generate_raw_data import main as generate_raw_data_task
-from src.pipelines.upload_to_staging import main as upload_to_staging_task
+from src.pipelines.validate_raw_data import main as validate_raw_data_task
 from src.pipelines.process_ai_enrichment import main as process_ai_enrichment_task
 from src.pipelines.load_to_lakehouse import main as load_to_lakehouse_task
 
@@ -24,13 +34,13 @@ default_args = {
     "retry_delay": timedelta(minutes=2),
 }
 
-def upload_wrapper(ti, **kwargs):
+def validate_wrapper(ti, **kwargs):
 
     timestamp = ti.xcom_pull(
         task_ids="generate_raw_data"
     )
 
-    upload_to_staging_task(
+    validate_raw_data_task(
         pipeline_timestamp=timestamp
     )
 
@@ -72,9 +82,9 @@ with DAG(
         python_callable=generate_raw_data_task
     )
 
-    upload_to_staging = PythonOperator(
-        task_id="upload_to_staging",
-        python_callable=upload_wrapper
+    validate_raw_data = PythonOperator(
+        task_id="validate_raw_data",
+        python_callable=validate_wrapper
     )
 
     process_ai_enrichment = PythonOperator(
@@ -89,7 +99,7 @@ with DAG(
 
     (
         generate_raw_data
-        >> upload_to_staging
+        >> validate_raw_data
         >> process_ai_enrichment
         >> load_to_lakehouse
     )
