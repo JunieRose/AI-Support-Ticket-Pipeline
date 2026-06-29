@@ -8,19 +8,20 @@ CREATE TABLE support_tickets (
     -- Core Ticket Data
     -------------------------------------------------------------------------
 
-    ticket_id            VARCHAR2(100) PRIMARY KEY,
-    created_at           TIMESTAMP,
-    customer_text        VARCHAR2(1000),
-    region               VARCHAR2(50),
+    ticket_id            NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email_address        VARCHAR2(100) NOT NULL,
+    created_at           TIMESTAMP NOT NULL,
+    customer_text        VARCHAR2(1000) NOT NULL,
+    region               VARCHAR2(50)NOT NULL,
     first_response_at    TIMESTAMP,
 
     -------------------------------------------------------------------------
     -- AI Enrichment Columns
     -------------------------------------------------------------------------
 
-    sentiment            NUMBER, 
-    category             VARCHAR2(50),
-    analysis_source      VARCHAR2(50),
+    sentiment            NUMBER NOT NULL, 
+    category             VARCHAR2(50) NOT NULL,
+    analysis_source      VARCHAR2(50) NOT NULL,
     
     -------------------------------------------------------------------------
     -- VIRTUAL COLUMNS: The "Business Logic" Layer
