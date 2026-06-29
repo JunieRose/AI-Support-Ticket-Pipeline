@@ -315,6 +315,7 @@ def validate_bronze_data(pipeline_timestamp: str) -> None:
         quarantine_df = df[df["failure_reason"] != ""]
 
         valid_df, quarantine_df = validate_duplicates(valid_df, quarantine_df)
+        valid_df = valid_df.drop(columns=["failure_reason"])
         save_and_upload(valid_df, quarantine_df, pipeline_timestamp, storage_client, namespace)
 
         total = len(df)
