@@ -28,7 +28,7 @@ from src.utils.oci_utils import(
     load_oci_config,
     create_storage_client,
     get_namespace,
-    get_database_connection,
+    fetch_reference_values,
     download_object,
     upload_object
 )
@@ -63,32 +63,6 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
-
-
-# -------------------------------------------------------------------
-# Reference Data Validation
-# -------------------------------------------------------------------
-
-
-def fetch_valid_regions() -> set[str]:
-    """Query dim_regions and return all valid regions as a set"""
-    logger.info("Fetching valid regions from dim_regions...")
-    cursor = None
-    connection = get_database_connection()
-
-    try:
-        cursor = connection.cursor()
-        cursor.execute("SELECT region_name FROM dim_regions")
-        rows = cursor.fetchall()
-        valid_regions = {row[0] for row in rows}
-
-    finally:
-        if cursor:
-            cursor.close()
-        connection.close()
-
-    logger.info("Found %s valid regions: %s", len(valid_regions), sorted(valid_regions))
-    return valid_regions
 
 
 def validate_required_columns(dataframe: pd.DataFrame) -> None:
@@ -296,7 +270,7 @@ def validate_bronze_data(pipeline_timestamp: str) -> None:
         logger.info("Loaded %s rows...", len(df))
         
         validate_required_columns(df)
-        valid_regions = fetch_valid_regions()
+        valid_regions = fetch_reference_values("DIM_REGIONS", "REGION_NAME")
         df["failure_reason"] = ""
 
         for index, row in df.iterrows():

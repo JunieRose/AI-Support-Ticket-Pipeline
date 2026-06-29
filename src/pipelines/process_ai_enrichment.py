@@ -30,7 +30,7 @@ from src.utils.oci_utils import (
     load_oci_config,
     create_storage_client,
     get_namespace,
-    get_database_connection,
+    fetch_reference_values,
     download_object,
     upload_object
 )
@@ -74,30 +74,6 @@ def get_gemini_client() -> genai.Client:
         raise ValueError("Missing GEMINI_API_KEY environment variable.")
     return genai.Client(api_key=api_key)
 
-
-# -------------------------------------------------------------------
-# Reference Data Validation
-# -------------------------------------------------------------------
-
-
-def fetch_valid_categories() -> set[str]:
-    """Quuery dim_categories and return all valid categories as a set."""
-    logger.info("Fetch valid categories from dim_categories...")
-    cursor = None
-    connection = get_database_connection()
-
-    try:
-        cursor = connection.cursor()
-        cursor.execute("SELECT category_name from dim_categories")
-        rows = cursor.fetchall()
-        valid_categories = {row[0] for row in rows}
-    finally:
-        if cursor:
-            cursor.close()
-        connection.close()
-    
-    logger.info(f"Found %s valid categories: %s", len(valid_categories), sorted(valid_categories))
-    return valid_categories
 
 # -------------------------------------------------------------------
 # Local NLP Fallback
@@ -147,24 +123,6 @@ def build_prompt(text: str) -> str:
     """
 
 
-def parse_ai_response(response_text: str, categories: set) -> tuple[float, str]:
-    """
-    Parse the pipe-delimited Gemini response into (score, category).
-
-    Falls back to (0.0, "General") on any parse error rather than
-    crashing the entire enrichment run.
-    """
-    try:
-        score, category = response_text.strip().split("|", maxsplit=1)
-        if category not in categories:
-            category = "General"
-        if 0 < score > 1:
-            score = 0.0 
-        return float(score), category.strip()
-    except (ValueError, TypeError):
-        logger.warning("Failed to parse AI response: %s", response_text)
-        return 0.0, "General"
-
 
 def get_ai_analysis(client: genai.Client, text: str, categories: set) -> tuple[float, str]:
     """Call the Gemini model and return (sentiment_score, category)."""
@@ -177,11 +135,12 @@ def get_ai_analysis(client: genai.Client, text: str, categories: set) -> tuple[f
 
     try:
         score, category = response.text.strip().split("|", maxsplit=1)
+        score = float(score)
         if category not in categories:
             category = "General"
-        if 0 < score > 1:
+        if -1.1 < score > 1.1:
             score = 0.0 
-        return float(score), category.strip()
+        return score, category
     except (ValueError, TypeError):
         logger.warning("Failed to parse AI response: %s", response.text)
         return 0.0, "General"
@@ -231,7 +190,7 @@ def enrich_dataframe(df: pd.DataFrame, client: genai.Client) -> pd.DataFrame:
     enriched_results = []
     total = len(df)
 
-    valid_categories = fetch_valid_categories()
+    valid_categories = fetch_reference_values("DIM_CATEGORIES", "CATEGORY_NAME")
 
     for index, text in enumerate(df["customer_text"], start=1):
         logger.info("Processing ticket %s / %s", index, total)

@@ -2,14 +2,8 @@
 Module Name: oci_utils.py
 
 Description:
-    Shared OCI Object Storage utility functions
+    Shared OCI Object Storage and Oracle DB utility functions
     used across the data pipeline.
-
-Features:
-    - OCI configuration loading
-    - Object Storage client creation
-    - File upload/download
-    - Latest object retrieval
 """
 
 from pathlib import Path
@@ -34,6 +28,7 @@ DB_DSN = os.getenv("OCI_DB_DSN")
 OCI_CONFIG_PROFILE = os.getenv("OCI_CONFIG_PROFILE")
 OCI_CONFIG_PATH = os.getenv("OCI_CONFIG_PATH")
 
+
 # -------------------------------------------------------------------
 # Logging
 # -------------------------------------------------------------------
@@ -46,49 +41,41 @@ logger = logging.getLogger(__name__)
 # -------------------------------------------------------------------
 
 def get_database_connection() -> oracledb.Connection:
-  # Create Oracle database connection
+    """
+    Create and return an Oracle Autonomous Database connection.
+    Raises ValueError if any required environment variable is missing,
+    """
+    if not all([DB_USER, DB_PASSWORD, DB_DSN]):
+        raise ValueError(
+            "Missing required Oracle database environment variables: "
+            "OCI_DB_USER, OCI_DB_PASSWORD, OCI_DB_DSN"
+        )
 
-  if not all([DB_USER, DB_PASSWORD, DB_DSN]):
-   raise ValueError(
-      "Missing required Oracle database environment variables."
-   )
+    logger.info("Connecting to Oracle Autonomous Database...")
 
-  logger.info(
-      "Connecting to Oracle Autonomous Database..."
-  )
-
-  return oracledb.connect(
-      user=DB_USER,
-      password=DB_PASSWORD,
-      dsn=DB_DSN
-  )
+    return oracledb.connect(
+        user=DB_USER,
+        password=DB_PASSWORD,
+        dsn=DB_DSN
+    )
 
 
 def load_oci_config() -> dict:
-
+    """Load OCI configuration from file."""
     logger.info("Loading OCI configuration...")
-
-    return oci.config.from_file(
-        OCI_CONFIG_PATH,
-        OCI_CONFIG_PROFILE
-    )
+    return oci.config.from_file(OCI_CONFIG_PATH, OCI_CONFIG_PROFILE)
 
 
 def create_storage_client(config: dict) -> oci.object_storage.ObjectStorageClient:
-
+    """Instantiate and return an OCI Object Storage client."""
     logger.info("Initializing OCI Object Storage client...")
-
-    return oci.object_storage.ObjectStorageClient(
-        config
-    )
+    return oci.object_storage.ObjectStorageClient(config)
 
 
 def get_namespace(storage_client) -> str:
-
-    namespace = (storage_client.get_namespace().data)
-
+    """Retrieve and return the OCI Object Storage namespace."""
+    namespace = storage_client.get_namespace().data
     logger.info("Connected to OCI namespace: %s", namespace)
-
     return namespace
 
 
@@ -97,19 +84,17 @@ def get_namespace(storage_client) -> str:
 # -------------------------------------------------------------------
 
 def upload_object(
-    storage_client,
+    storage_client: oci.object_storage.ObjectStorageClient,
     namespace: str,
     bucket_name: str,
     object_name: str,
     local_file: Path,
     content_type: str = "text/csv"
 ) -> None:
-    # Upload local file to OCI Object Storage.
-
-    logger.info("Uploading object: %s", object_name)
+    """Upload a local file to OCI Object Storage."""
+    logger.info("Uploading %s → oci:%s/%s", local_file.name, bucket_name, object_name)
 
     with open(local_file, "rb") as file_data:
-
         storage_client.put_object(
             namespace_name=namespace,
             bucket_name=bucket_name,
@@ -118,19 +103,21 @@ def upload_object(
             content_type=content_type
         )
 
-    logger.info("Upload completed successfully.")
+    logger.info("Upload completed: %s", object_name)
 
 
 def download_object(
-    storage_client,
+    storage_client: oci.object_storage.ObjectStorageClient,
     namespace: str,
     bucket_name: str,
     object_name: str,
     download_path: Path
 ) -> None:
-    # Download OCI object locally.
-
-    logger.info("Downloading object: %s", object_name)
+    """
+    Download an OCI Object Storage object to a local path.
+    Creates any missing parent directories before writing.
+    """
+    logger.info("Downloading oci:%s/%s → %s", bucket_name, object_name, download_path)
 
     response = storage_client.get_object(
         namespace_name=namespace,
@@ -138,50 +125,39 @@ def download_object(
         object_name=object_name
     )
 
-    download_path.parent.mkdir(
-        parents=True,
-        exist_ok=True
-    )
+    download_path.parent.mkdir(parents=True, exist_ok=True)
 
     with open(download_path, "wb") as file:
-
         file.write(response.data.content)
 
     logger.info("Download completed: %s", download_path)
 
 
-def get_latest_object(
-    storage_client,
-    namespace: str,
-    bucket_name: str,
-    prefix: str,
-    filename_pattern: str
-) -> str:
-    # Retrieve latest matching object from OCI Object Storage.
+# -------------------------------------------------------------------
+# Reference Data
+# -------------------------------------------------------------------
 
-    logger.info("Searching for latest object under prefix: %s", prefix)
 
-    response = storage_client.list_objects(
-        namespace_name=namespace,
-        bucket_name=bucket_name,
-        prefix=prefix
-    )
+def fetch_reference_values(table_name: str, column_name: str) -> set[str]:
+    """
+    Retrieve valid reference values from dimension table
+    Example:
+        fetch_reference_values("dim_regions", "region_name")
+        fetch_reference_values("dim_categories", "category_name")
+    """
+    logger.info("Fetching valid %s from %s...", column_name, table_name)
+    cursor = None
+    connection = get_database_connection()
 
-    objects = response.data.objects
-
-    matching_files = [
-        obj.name
-        for obj in objects
-        if filename_pattern in obj.name
-    ]
-
-    if not matching_files:
-        raise FileNotFoundError(
-            f"No matching files found for pattern: {filename_pattern}"
-        )
-
-    latest_object = max(matching_files)
-
-    logger.info("Latest object detected: %s", latest_object)
-
-    return latest_object
+    try:
+        cursor = connection.cursor()
+        query = (f"SELECT {column_name} FROM {table_name}")
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        valid_values = {row[0] for row in rows}
+    finally:
+        if cursor:
+            cursor.close()
+        connection.close()
+    logger.info("Found %s valid values: %s", len(valid_values), sorted(valid_values))
+    return valid_values
