@@ -159,5 +159,31 @@ def fetch_reference_values(table_name: str, column_name: str) -> set[str]:
         if cursor:
             cursor.close()
         connection.close()
+    
     logger.info("Found %s valid values: %s", len(valid_values), sorted(valid_values))
     return valid_values
+
+
+def fetch_reference_mapping(table_name: str, key_column: str, value_column: str) -> dict:
+    """
+    Return a mapping
+    """
+    logger.info("Fetching %s to %s mapping from %s...", key_column, value_column, table_name)
+    cursor = None
+    connection = get_database_connection()
+    
+    try:
+        cursor = connection.cursor()
+        query = (f"SELECT {key_column}, {value_column} FROM {table_name}")
+        cursor.execute(query)
+        valid_mapping = {
+            row[0]: row[1]
+            for row in cursor.fetchall()
+        }
+    finally:
+        if cursor:
+            cursor.close()
+        connection.close()
+    
+    logger.info("Found %s valid mappings: %s", len(valid_mapping), sorted(valid_mapping))
+    return valid_mapping

@@ -23,7 +23,8 @@ from src.utils.oci_utils import (
     load_oci_config,
     create_storage_client,
     get_namespace,
-    download_object
+    download_object,
+    fetch_reference_mapping
 )
 
 # -------------------------------------------------------------------
@@ -55,12 +56,16 @@ logger = logging.getLogger(__name__)
 
 def prepare_records(dataframe: pd.DataFrame) -> list[tuple]:
     """Coerce types and convert DataFrame to Oracle-compatible row tuples."""
+    region_lookup = fetch_reference_mapping("DIM_REGIONS", "REGION_NAME", "REGION_ID")
+    category_lookup = fetch_reference_mapping("DIM_CATEGORIES", "CATEGORY_NAME", "CATEGORY_ID")
+
     dataframe = dataframe.copy()
     dataframe["created_at"] = pd.to_datetime(dataframe["created_at"])
-    dataframe["first_response_at"] = pd.to_datetime(
-        dataframe["first_response_at"], errors="coerce"
-        )
+    dataframe["first_response_at"] = pd.to_datetime(dataframe["first_response_at"], errors="coerce")
     dataframe.replace({pd.NA: None}, inplace=True)
+    dataframe["region_id"] = dataframe["region"].map(region_lookup)
+    dataframe["category_id"] = dataframe["category"].map(category_lookup)
+    dataframe.drop(columns=["region", "category"], inplace=True)
 
     return list(dataframe.itertuples(index=False, name=None))
 
@@ -72,11 +77,11 @@ def execute_bulk_insert(cursor: oracledb.Cursor, records: list[tuple]) -> int:
         email_address,
         created_at,
         customer_text,
-        region,
         first_response_at,
         sentiment,
-        category,
-        analysis_source
+        analysis_source,
+        region_id,
+        category_id
         )
         VALUES (
         :1,
