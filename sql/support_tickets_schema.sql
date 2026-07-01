@@ -12,7 +12,7 @@ CREATE TABLE support_tickets (
     email_address        VARCHAR2(100) NOT NULL,
     created_at           TIMESTAMP NOT NULL,
     customer_text        VARCHAR2(1000) NOT NULL,
-    region               VARCHAR2(50)NOT NULL,
+    region_id            NUMBER CONSTRAINT fk_region_id REFERENCES DIM_REGIONS(region_id), 
     first_response_at    TIMESTAMP,
 
     -------------------------------------------------------------------------
@@ -20,7 +20,7 @@ CREATE TABLE support_tickets (
     -------------------------------------------------------------------------
 
     sentiment            NUMBER NOT NULL, 
-    category             VARCHAR2(50) NOT NULL,
+    category_id          NUMBER CONSTRAINT fk_category_id REFERENCES DIM_CATEGORIES(category_id),
     analysis_source      VARCHAR2(50) NOT NULL,
     
     -------------------------------------------------------------------------
