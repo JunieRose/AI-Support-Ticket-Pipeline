@@ -25,12 +25,20 @@ import time
 
 
 from src.utils.oci_utils import(
+    get_database_connection,
     load_oci_config,
     create_storage_client,
     get_namespace,
     fetch_reference_values,
     download_object,
     upload_object
+)
+
+from src.utils.pipeline_utils import (
+    get_stage_id,
+    start_pipeline_stage,
+    complete_pipeline_stage,
+    fail_pipeline_stage
 )
 
 BUCKET_NAME = "bucket-tickets"
@@ -192,16 +200,15 @@ def validate_duplicates(valid_df: pd.DataFrame, quarantine_df: pd.DataFrame) -> 
 # Save anbd Upload Outputs
 # -------------------------------------------------------------------
 
-def save_and_upload(valid_df: pd.DataFrame, quarantine_df: pd.DataFrame, pipeline_timestamp: str, storage_client, namespace) -> None:
-    """Save validated and quarantined records to their respective CSV files"""
+def save_and_upload_valid_data(valid_df: pd.DataFrame, pipeline_timestamp: str, storage_client, namespace) -> str:
+    """
+    Save validated records to CSV file and uploads to OCI Object Storage.
+    Returns the file name of the validated output file for metrics reporting
+    """
     VALIDATED_DIR.mkdir(parents=True, exist_ok=True)
-    QUARANTINE_DIR.mkdir(parents=True, exist_ok=True)
 
     validated_file = VALIDATED_DIR.joinpath(f"validated_support_tickets_{pipeline_timestamp}.csv")
     validated_object_name = f"{VALID_PREFIX}validated_support_tickets_{pipeline_timestamp}.csv"
-
-    quarantine_file = QUARANTINE_DIR.joinpath(f"quarantine_support_tickets_{pipeline_timestamp}.csv")
-    quarantine_object_name = f"{QUARANTINE_PREFIX}quarantine_support_tickets_{pipeline_timestamp}.csv"
 
     valid_df.to_csv(validated_file, index=False)
     logger.info("Validated records saved: %s (%s rows)", validated_file, len(valid_df))
@@ -214,6 +221,19 @@ def save_and_upload(valid_df: pd.DataFrame, quarantine_df: pd.DataFrame, pipelin
         local_file=validated_file
     )
 
+    return str(validated_file.name)
+
+
+def save_and_upload_quarantined_data(quarantine_df: pd.DataFrame, pipeline_timestamp: str, storage_client, namespace) -> str:
+    """
+    Save quarantined records CSV file and uploads to OCI Object Storage.
+    Returns the file name of the quarantined output file for metrics reporting
+    """
+    QUARANTINE_DIR.mkdir(parents=True, exist_ok=True)
+
+    quarantine_file = QUARANTINE_DIR.joinpath(f"quarantine_support_tickets_{pipeline_timestamp}.csv")
+    quarantine_object_name = f"{QUARANTINE_PREFIX}quarantine_support_tickets_{pipeline_timestamp}.csv"
+
     quarantine_df.to_csv(quarantine_file, index=False)
     logger.info("Quarantine records saved: %s (%s rows)", quarantine_file, len(quarantine_df))
 
@@ -225,13 +245,14 @@ def save_and_upload(valid_df: pd.DataFrame, quarantine_df: pd.DataFrame, pipelin
         local_file=quarantine_file
     )
 
+    return str(quarantine_file.name)
 
 # -------------------------------------------------------------------
 # Main Orchestration
 # -------------------------------------------------------------------
 
 
-def validate_bronze_data(pipeline_timestamp: str) -> None:
+def validate_bronze_data(pipeline_timestamp: str, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Full validation run for one pipeline execution:
       1. Download the raw bronze CSV from OCI.
@@ -243,32 +264,13 @@ def validate_bronze_data(pipeline_timestamp: str) -> None:
                            with a "failure_reasons" column explaining why
       5. Resolve duplicates from valid_df — keep latest, quarantine older copies.
       6. Save both output files and upload to OCI.
-      7. Provide data quality qsummary.
+      7. Provide data quality summary.
       8. Clean up the temp file.
     """
     start_time = time.time()
     logger.info("Loading raw dataset...")
 
-    config = load_oci_config()
-    storage_client = create_storage_client(config)
-    namespace = get_namespace(storage_client)
-
-    raw_object_name = f"{BRONZE_PREFIX}raw_support_tickets_{pipeline_timestamp}.csv"
-    local_raw_file = TMP_DIR.joinpath(f"raw_support_tickets_{pipeline_timestamp}.csv")
-
-    download_object(
-        storage_client=storage_client,
-        namespace=namespace,
-        bucket_name=BUCKET_NAME,
-        object_name=raw_object_name,
-        download_path=local_raw_file
-    )
-
     try:
-        logger.info("Loading bronze dataset...")
-        df = pd.read_csv(local_raw_file)
-        logger.info("Loaded %s rows...", len(df))
-        
         validate_required_columns(df)
         valid_regions = fetch_reference_values("DIM_REGIONS", "REGION_NAME")
         df["failure_reason"] = ""
@@ -290,15 +292,12 @@ def validate_bronze_data(pipeline_timestamp: str) -> None:
 
         valid_df, quarantine_df = validate_duplicates(valid_df, quarantine_df)
         valid_df = valid_df.drop(columns=["failure_reason"])
-        save_and_upload(valid_df, quarantine_df, pipeline_timestamp, storage_client, namespace)
 
         total = len(df)
         logger.info("Validation complete - %s/%s valid | %s/%s quarantined",
                     len(valid_df), total,
                     len(quarantine_df), total
         )
-        validation_rate = round((len(valid_df) / len(df)) * 100, 2)
-        logger.info("Validation pass rate: %.2f%%", validation_rate)
 
         if len(valid_df) == 0:
             logger.warning("All %s rows were quarantined "
@@ -313,24 +312,79 @@ def validate_bronze_data(pipeline_timestamp: str) -> None:
                         .value_counts()
                         .to_string()
                         )
+    except Exception as error:
+        logger.exception("Validation failed: %s", error)
+        raise
+
+    elapsed = round(time.time() - start_time, 2)
+    logger.info("Validation completed in %s seconds.", elapsed)
+    return valid_df, quarantine_df
+
+
+def main(pipeline_timestamp: str) -> None:
+    """Pipeline entry point to the validation task"""
+    start_time = datetime.now()
+    connection = get_database_connection()
+    stage_id = get_stage_id(conn=connection, pipeline_code="AI_SUPPORT", stage_name="Validate Bronze Data")
+    run_id = start_pipeline_stage(conn=connection, start_time=start_time, execution_id=pipeline_timestamp, stage_id=stage_id)
+
+    config = load_oci_config()
+    storage_client = create_storage_client(config)
+    namespace = get_namespace(storage_client)
+
+    raw_object_name = f"{BRONZE_PREFIX}raw_support_tickets_{pipeline_timestamp}.csv"
+    local_raw_file = TMP_DIR.joinpath(f"raw_support_tickets_{pipeline_timestamp}.csv")
+
+    summary = {
+        "rows_read": 0,
+        "rows_valid": 0,
+        "rows_quarantined": 0,
+        "validation_pass_rate": 0.0,
+        "valid_output_file": "",
+        "quarantine_output_file": ""
+    }
+
+    try:
+        download_object(
+        storage_client=storage_client,
+        namespace=namespace,
+        bucket_name=BUCKET_NAME,
+        object_name=raw_object_name,
+        download_path=local_raw_file
+        )
+
+        logger.info("Loading bronze dataset...")
+        df = pd.read_csv(local_raw_file)
+        total = len(df)
+        summary["rows_read"] = total
+        logger.info("Loaded %s rows...", total)
+
+        valid_df, quarantine_df = validate_bronze_data(pipeline_timestamp, df)
+        summary["rows_valid"] = len(valid_df)
+        summary["rows_quarantined"] = len(quarantine_df)
+        summary["validation_pass_rate"] = round((len(valid_df) / total) * 100, 1)
+        logger.info("Validation pass rate: %.1f%%", summary["validation_pass_rate"])
+
+        if not valid_df.empty:
+            valid_file = save_and_upload_valid_data(valid_df, pipeline_timestamp, storage_client, namespace)
+            summary["valid_output_file"] = valid_file
+
+        if not quarantine_df.empty:
+            quarantine_file = save_and_upload_quarantined_data(quarantine_df, pipeline_timestamp, storage_client, namespace)
+            summary["quarantine_output_file"] = quarantine_file
+
+        complete_pipeline_stage(conn=connection, run_id=run_id, metrics=summary)
+
+    except Exception as error:
+        logger.exception("Pipeline execution failed: %s", error)
+        fail_pipeline_stage(conn=connection, run_id=run_id, error_message=str(error))
+        raise
 
     finally:
         if local_raw_file.exists():
             local_raw_file.unlink()
             logger.info("Clean up: Deleted local file %s", local_raw_file)
-
-    elapsed = round(time.time() - start_time, 2)
-    logger.info("Validation completed in %s seconds.", elapsed)
-
-
-def main(pipeline_timestamp: str) -> None:
-    """Pipeline entry point to the validation task"""
-    try:
-        validate_bronze_data(pipeline_timestamp)
-    except Exception as error:
-        logger.exception("Unexpected error during validation: %s", error)
-        raise
-
+        
 
 if __name__ == "__main__":
     main()

@@ -10,9 +10,9 @@ Description:
     - Safe resource cleanup
 """
 
+from datetime import datetime
 from pathlib import Path
 import logging
-import math
 import time
 
 import oracledb
@@ -25,6 +25,13 @@ from src.utils.oci_utils import (
     get_namespace,
     download_object,
     fetch_reference_mapping
+)
+
+from src.utils.pipeline_utils import (
+    get_stage_id,
+    start_pipeline_stage,
+    complete_pipeline_stage,
+    fail_pipeline_stage
 )
 
 # -------------------------------------------------------------------
@@ -69,6 +76,7 @@ def prepare_records(dataframe: pd.DataFrame) -> list[tuple]:
 
     return list(dataframe.itertuples(index=False, name=None))
 
+
 def execute_bulk_insert(cursor: oracledb.Cursor, records: list[tuple]) -> int:
     """Execute batch insert operation."""
 
@@ -104,7 +112,7 @@ def execute_bulk_insert(cursor: oracledb.Cursor, records: list[tuple]) -> int:
 # Main Processing Logic
 # -------------------------------------------------------------------
 
-def load_data_to_lakehouse(pipeline_timestamp: str) -> None:
+def main(pipeline_timestamp: str) -> None:
     """
     Full load workflow for one pipeline run:
       1. Download enriched CSV from OCI silver layer.
@@ -112,12 +120,22 @@ def load_data_to_lakehouse(pipeline_timestamp: str) -> None:
       3. Insert into Oracle Autonomous Database.
       4. Clean up temp file (always, even on failure).
     """
+    start_time = datetime.now()
+    connection = get_database_connection()
+    stage_id = get_stage_id(conn=connection, pipeline_code="AI_SUPPORT", stage_name="Load to Lakehouse")
+    run_id = start_pipeline_stage(conn=connection, start_time=start_time, execution_id=pipeline_timestamp, stage_id=stage_id)
+
     config = load_oci_config()
     storage_client = create_storage_client(config)
     namespace = get_namespace(storage_client)
 
     silver_object_name = f"{SILVER_PREFIX}enriched_support_tickets_{pipeline_timestamp}.csv"
     local_enriched_file = TMP_DIR / f"enriched_support_tickets_{pipeline_timestamp}.csv"
+
+    summary = {
+        "rows_loaded": 0,
+        "target_table": TARGET_TABLE
+    }
 
     download_object(
         storage_client=storage_client,
@@ -140,11 +158,13 @@ def load_data_to_lakehouse(pipeline_timestamp: str) -> None:
         try:
             inserted_rows = execute_bulk_insert(cursor,records)
             connection.commit()
+            summary["rows_loaded"] = inserted_rows
 
             elapsed_time = round(time.time() - start_time, 2)
             logger.info("Transaction committed successfully.")
             logger.info("%s rows inserted into %s.", inserted_rows, TARGET_TABLE)
             logger.info("Load completed in %s seconds.", elapsed_time)
+            complete_pipeline_stage(conn=connection, run_id=run_id, metrics=summary)
             
         except oracledb.Error as database_error:
             connection.rollback()
@@ -156,20 +176,16 @@ def load_data_to_lakehouse(pipeline_timestamp: str) -> None:
             connection.close()
             logger.info("Database connection closed.")
 
+    except Exception as error:
+        logger.exception("Pipeline execution failed: %s", error)
+        fail_pipeline_stage(conn=connection, run_id=run_id, error_message=str(error))
+        raise
+
     finally:
-        # Always remove the temp file, even if the DB step failed.
         if local_enriched_file.exists():
             local_enriched_file.unlink()
             logger.info("Clean up: Deleted local file %s", local_enriched_file)
 
-
-def main(pipeline_timestamp: str) -> None:
-    """Pipeline entry point for the lakehouse load task."""
-    try:
-        load_data_to_lakehouse(pipeline_timestamp)
-    except Exception as error:
-        logger.exception("Pipeline execution failed: %s", error)
-        raise
 
 if __name__ == "__main__":
    main()

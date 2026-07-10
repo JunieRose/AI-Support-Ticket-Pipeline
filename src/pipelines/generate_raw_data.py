@@ -29,10 +29,18 @@ import random
 import pandas as pd
 
 from src.utils.oci_utils import (
+    get_database_connection,
     load_oci_config,
     create_storage_client,
     get_namespace,
     upload_object
+)
+
+from src.utils.pipeline_utils import (
+    complete_pipeline_stage,
+    fail_pipeline_stage,
+    get_stage_id,
+    start_pipeline_stage
 )
 
 # -------------------------------------------------------------------
@@ -314,16 +322,34 @@ def main() -> str:
     The timestamp is pushed to Airflow XCom automatically when this
     function is used as a PythonOperator callable.
     """
+    start_time = datetime.now()
     pipeline_timestamp = generate_pipeline_timestamp()
     output_file = build_output_file(pipeline_timestamp)
+
+    connection = get_database_connection()
+    stage_id = get_stage_id(conn=connection, pipeline_code="AI_SUPPORT", stage_name="Generate Raw Data")
+    run_id = start_pipeline_stage(conn=connection, start_time=start_time, execution_id=pipeline_timestamp, stage_id=stage_id)
+
+    summary = {
+        "rows_generated": 0,
+        "output_file": str(output_file.name)
+        }
 
     try:
         support_data = generate_support_data()
         save_to_csv(dataframe=support_data, output_file=output_file)
         load_to_staging(raw_file_path=output_file)
+        summary["rows_generated"] = len(support_data)
+        complete_pipeline_stage(conn=connection, run_id=run_id, metrics=summary)
+
     except Exception as error:
         logger.exception("Pipeline execution failed: %s", error)
+        fail_pipeline_stage(conn=connection, run_id=run_id, error_message=str(error))
         raise
+    
+    finally:
+        connection.close()
+        logger.info("Database connection closed.")
 
     return pipeline_timestamp
 

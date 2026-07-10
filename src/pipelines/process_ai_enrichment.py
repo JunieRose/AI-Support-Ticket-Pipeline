@@ -15,6 +15,7 @@ Description:
             - Timestamp lineage preservation
 """
 
+from datetime import datetime
 from pathlib import Path
 import logging
 import os
@@ -27,6 +28,7 @@ from google.genai import types
 from textblob import TextBlob
 
 from src.utils.oci_utils import (
+    get_database_connection,
     load_oci_config,
     create_storage_client,
     get_namespace,
@@ -34,6 +36,13 @@ from src.utils.oci_utils import (
     download_object,
     upload_object
 )
+from src.utils.pipeline_utils import (
+    get_stage_id,
+    start_pipeline_stage,
+    complete_pipeline_stage,
+    fail_pipeline_stage
+)
+    
 
 # -------------------------------------------------------------------
 # Configuration
@@ -207,14 +216,9 @@ def enrich_dataframe(df: pd.DataFrame, client: genai.Client) -> pd.DataFrame:
     return enriched_df
 
 
-def save_and_upload(
-    enriched_df: pd.DataFrame,
-    pipeline_timestamp: str,
-    storage_client,
-    namespace: str,
-) -> None:
+def save_and_upload(enriched_df: pd.DataFrame, silver_filename: str, storage_client, namespace: str,) -> None:
     """Persist the enriched DataFrame locally and upload to OCI silver layer."""
-    silver_filename = f"enriched_support_tickets_{pipeline_timestamp}.csv"
+    
     local_silver_file = SILVER_DIR.joinpath(silver_filename)
 
     SILVER_DIR.mkdir(parents=True, exist_ok=True)
@@ -235,7 +239,7 @@ def save_and_upload(
 # Main Processing Logic
 # -------------------------------------------------------------------
 
-def process_tickets(pipeline_timestamp: str) -> None:
+def main(pipeline_timestamp: str) -> None:
     """
     Full enrichment pipeline for one run:
       1. Download raw CSV from OCI bronze layer.
@@ -243,7 +247,10 @@ def process_tickets(pipeline_timestamp: str) -> None:
       3. Save enriched CSV locally and upload to OCI silver layer.
       4. Clean up temp files (always, even on failure).
     """
-    start_time = time.time()
+    start_time = datetime.now()
+    connection = get_database_connection()
+    stage_id = get_stage_id(conn=connection, pipeline_code="AI_SUPPORT", stage_name="AI Enrichment")
+    run_id = start_pipeline_stage(conn=connection, start_time=start_time, execution_id=pipeline_timestamp, stage_id=stage_id)
 
     config = load_oci_config()
     storage_client = create_storage_client(config)
@@ -251,6 +258,15 @@ def process_tickets(pipeline_timestamp: str) -> None:
 
     raw_object_name = f"{VALIDATED_PREFIX}validated_support_tickets_{pipeline_timestamp}.csv"
     local_raw_file = TMP_DIR.joinpath(f"validated_support_tickets_{pipeline_timestamp}.csv")
+
+    summary = {
+        "rows_read": 0,
+        "rows_enriched": 0,
+        "output_file": "",
+        "gemini_enrichments": 0,
+        "textblob_enrichments": 0,
+        "gemini_percentage": 0.0
+    }
 
     download_object(
         storage_client=storage_client,
@@ -261,34 +277,42 @@ def process_tickets(pipeline_timestamp: str) -> None:
     )
 
     try:
-        logger.info("Loading raw support ticket dataset...")
+        logger.info("Loading validated support ticket dataset...")
         df = pd.read_csv(local_raw_file)
-        logger.info("Loaded %s support tickets.", len(df))
+        total = len(df)
+        summary["rows_read"] = total
+        logger.info("Loaded %s support tickets.", total)
 
         client = get_gemini_client()
         enriched_df = enrich_dataframe(df, client)
-        save_and_upload(enriched_df, pipeline_timestamp, storage_client, namespace)
+
+        if not enriched_df.empty:
+            silver_filename = f"enriched_support_tickets_{pipeline_timestamp}.csv"
+            save_and_upload(enriched_df, silver_filename, storage_client, namespace)
+            summary["output_file"] = silver_filename
+            summary["rows_enriched"] = len(enriched_df)
+
+            gemini_count = (enriched_df["analysis_source"] == "gemini").sum().item()
+            summary["gemini_enrichments"] = gemini_count
+            summary["gemini_percentage"] = round((gemini_count / total) * 100, 1)
+
+            textblob_count = (enriched_df["analysis_source"] == "textblob").sum().item()
+            summary["textblob_enrichments"] = textblob_count
+
+            logger.info("Gemini enrichments: %s | TextBlob enrichments: %s", gemini_count, textblob_count)
+            logger.info("Gemini enrichment rate: %.1f%%", summary["gemini_percentage"])
+            
+            complete_pipeline_stage(conn=connection, run_id=run_id, metrics=summary)
+
+    except Exception as error:
+        logger.exception("Pipeline execution failed: %s", error)
+        fail_pipeline_stage(conn=connection, run_id=run_id, error_message=str(error))
+        raise
 
     finally:
         if local_raw_file.exists():
             local_raw_file.unlink()
             logger.info("Clean up: Deleted local file %s", local_raw_file)
-
-    elapsed_time = round(time.time() - start_time, 2)
-    logger.info("AI enrichment pipeline completed in %s seconds.", elapsed_time)
-
-    gemini_count = (enriched_df["analysis_source"] == "gemini").sum()
-    fallback_count = (enriched_df["analysis_source"] == "textblob").sum()
-    logger.info("Gemini enrichments: %s | Fallback enrichments: %s", gemini_count, fallback_count)
-
-
-def main(pipeline_timestamp: str) -> None:
-    """Pipeline entry point for the AI enrichment task."""
-    try:
-        process_tickets(pipeline_timestamp)
-    except Exception as error:
-        logger.exception("Pipeline execution failed: %s", error)
-        raise
 
 
 if __name__ == "__main__":
