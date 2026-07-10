@@ -20,7 +20,7 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 
 from src.pipelines.generate_raw_data import main as generate_raw_data_task
-from src.pipelines.validate_raw_data import main as validate_raw_data_task
+from src.pipelines.validate_bronze_data import main as validate_bronze_data_task
 from src.pipelines.process_ai_enrichment import main as process_ai_enrichment_task
 from src.pipelines.load_to_lakehouse import main as load_to_lakehouse_task
 
@@ -40,7 +40,7 @@ def validate_wrapper(ti, **kwargs):
         task_ids="generate_raw_data"
     )
 
-    validate_raw_data_task(
+    validate_bronze_data_task(
         pipeline_timestamp=timestamp
     )
 
@@ -82,8 +82,8 @@ with DAG(
         python_callable=generate_raw_data_task
     )
 
-    validate_raw_data = PythonOperator(
-        task_id="validate_raw_data",
+    validate_bronze_data = PythonOperator(
+        task_id="validate_bronze_data",
         python_callable=validate_wrapper
     )
 
@@ -99,7 +99,7 @@ with DAG(
 
     (
         generate_raw_data
-        >> validate_raw_data
+        >> validate_bronze_data
         >> process_ai_enrichment
         >> load_to_lakehouse
     )
