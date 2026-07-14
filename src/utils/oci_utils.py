@@ -2,8 +2,8 @@
 Module Name: oci_utils.py
 
 Description:
-    Shared OCI Object Storage and Oracle DB utility functions
-    used across the data pipeline.
+    Interact with Oracle Cloud Infrastructure (OCI) services,
+    including Object Storage.
 """
 
 from pathlib import Path
@@ -11,7 +11,6 @@ import logging
 import os
 
 from dotenv import load_dotenv
-import oracledb
 import oci
 
 
@@ -20,10 +19,6 @@ import oci
 # -------------------------------------------------------------------
 
 load_dotenv()
-
-DB_USER = os.getenv("OCI_DB_USER")
-DB_PASSWORD = os.getenv("OCI_DB_PASSWORD")
-DB_DSN = os.getenv("OCI_DB_DSN")
 
 OCI_CONFIG_PROFILE = os.getenv("OCI_CONFIG_PROFILE")
 OCI_CONFIG_PATH = os.getenv("OCI_CONFIG_PATH")
@@ -37,27 +32,8 @@ logger = logging.getLogger(__name__)
 
 
 # -------------------------------------------------------------------
-# DB Connection and OCI COnfiguration
+# OCI Configuration
 # -------------------------------------------------------------------
-
-def get_database_connection() -> oracledb.Connection:
-    """
-    Create and return an Oracle Autonomous Database connection.
-    Raises ValueError if any required environment variable is missing,
-    """
-    if not all([DB_USER, DB_PASSWORD, DB_DSN]):
-        raise ValueError(
-            "Missing required Oracle database environment variables: "
-            "OCI_DB_USER, OCI_DB_PASSWORD, OCI_DB_DSN"
-        )
-
-    logger.info("Connecting to Oracle Autonomous Database...")
-
-    return oracledb.connect(
-        user=DB_USER,
-        password=DB_PASSWORD,
-        dsn=DB_DSN
-    )
 
 
 def load_oci_config() -> dict:
@@ -132,58 +108,3 @@ def download_object(
 
     logger.info("Download completed: %s", download_path)
 
-
-# -------------------------------------------------------------------
-# Reference Data
-# -------------------------------------------------------------------
-
-
-def fetch_reference_values(table_name: str, column_name: str) -> set[str]:
-    """
-    Retrieve valid reference values from dimension table
-    Example:
-        fetch_reference_values("dim_regions", "region_name")
-        fetch_reference_values("dim_categories", "category_name")
-    """
-    logger.info("Fetching valid %s from %s...", column_name, table_name)
-    cursor = None
-    connection = get_database_connection()
-
-    try:
-        cursor = connection.cursor()
-        query = (f"SELECT {column_name} FROM {table_name}")
-        cursor.execute(query)
-        rows = cursor.fetchall()
-        valid_values = {row[0] for row in rows}
-    finally:
-        if cursor:
-            cursor.close()
-        connection.close()
-    
-    logger.info("Found %s valid values: %s", len(valid_values), sorted(valid_values))
-    return valid_values
-
-
-def fetch_reference_mapping(table_name: str, key_column: str, value_column: str) -> dict:
-    """
-    Return a mapping
-    """
-    logger.info("Fetching %s to %s mapping from %s...", key_column, value_column, table_name)
-    cursor = None
-    connection = get_database_connection()
-    
-    try:
-        cursor = connection.cursor()
-        query = (f"SELECT {key_column}, {value_column} FROM {table_name}")
-        cursor.execute(query)
-        valid_mapping = {
-            row[0]: row[1]
-            for row in cursor.fetchall()
-        }
-    finally:
-        if cursor:
-            cursor.close()
-        connection.close()
-    
-    logger.info("Found %s valid mappings: %s", len(valid_mapping), sorted(valid_mapping))
-    return valid_mapping

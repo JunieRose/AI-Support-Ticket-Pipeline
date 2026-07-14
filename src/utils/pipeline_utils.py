@@ -1,18 +1,61 @@
+"""
+Module Name: pipeline_utils.py
+
+Description:
+    Utility functions for managing pipeline execution metadata.
+"""
+
 import logging
 import json
 from datetime import datetime
+import os
 
+from dotenv import load_dotenv
 import oracledb
 
-from src.utils.oci_utils import (
-    get_database_connection
-)
+# -------------------------------------------------------------------
+# Environment Variables
+# -------------------------------------------------------------------
+
+load_dotenv()
+
+DB_USER = os.getenv("OCI_DB_USER")
+DB_PASSWORD = os.getenv("OCI_DB_PASSWORD")
+DB_DSN = os.getenv("OCI_DB_DSN")
 
 # -------------------------------------------------------------------
 # Logging
 # -------------------------------------------------------------------
 
 logger = logging.getLogger(__name__)
+
+# -------------------------------------------------------------------
+# Database Connection
+# -------------------------------------------------------------------
+
+def get_database_connection() -> oracledb.Connection:
+    """
+    Create and return an Oracle Autonomous Database connection.
+    Raises ValueError if any required environment variable is missing,
+    """
+    if not all([DB_USER, DB_PASSWORD, DB_DSN]):
+        raise ValueError(
+            "Missing required Oracle database environment variables: "
+            "OCI_DB_USER, OCI_DB_PASSWORD, OCI_DB_DSN"
+        )
+
+    logger.info("Connecting to Oracle Autonomous Database...")
+
+    return oracledb.connect(
+        user=DB_USER,
+        password=DB_PASSWORD,
+        dsn=DB_DSN
+    )
+
+
+# -------------------------------------------------------------------
+# Pipelines
+# -------------------------------------------------------------------
 
 def get_stage_id(conn: oracledb.Connection, pipeline_code: str, stage_name: str) -> str:
     """

@@ -23,15 +23,17 @@ import pandas as pd
 import re
 import time
 
-
 from src.utils.oci_utils import(
-    get_database_connection,
     load_oci_config,
     create_storage_client,
     get_namespace,
-    fetch_reference_values,
     download_object,
     upload_object
+)
+
+from src.utils.db_utils import (
+    get_database_connection,
+    fetch_reference_values,
 )
 
 from src.utils.pipeline_utils import (
@@ -40,6 +42,12 @@ from src.utils.pipeline_utils import (
     complete_pipeline_stage,
     fail_pipeline_stage
 )
+
+
+# -------------------------------------------------------------------
+# Configuration
+# -------------------------------------------------------------------
+
 
 BUCKET_NAME = "bucket-tickets"
 BRONZE_PREFIX = "bronze/"
@@ -61,9 +69,11 @@ REQUIRED_COLUMNS = [
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 DUPLICATE_KEY = ["email_address", "customer_text"]
 
+
 # -------------------------------------------------------------------
-# Logging
+# Logging Configuration
 # -------------------------------------------------------------------
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -200,6 +210,7 @@ def validate_duplicates(valid_df: pd.DataFrame, quarantine_df: pd.DataFrame) -> 
 # Save anbd Upload Outputs
 # -------------------------------------------------------------------
 
+
 def save_and_upload_valid_data(valid_df: pd.DataFrame, pipeline_timestamp: str, storage_client, namespace) -> str:
     """
     Save validated records to CSV file and uploads to OCI Object Storage.
@@ -247,12 +258,13 @@ def save_and_upload_quarantined_data(quarantine_df: pd.DataFrame, pipeline_times
 
     return str(quarantine_file.name)
 
+
 # -------------------------------------------------------------------
 # Main Orchestration
 # -------------------------------------------------------------------
 
 
-def validate_bronze_data(pipeline_timestamp: str, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+def validate_bronze_data(df: pd.DataFrame, valid_regions: set[str]) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Full validation run for one pipeline execution:
       1. Download the raw bronze CSV from OCI.
@@ -272,7 +284,6 @@ def validate_bronze_data(pipeline_timestamp: str, df: pd.DataFrame) -> tuple[pd.
 
     try:
         validate_required_columns(df)
-        valid_regions = fetch_reference_values("DIM_REGIONS", "REGION_NAME")
         df["failure_reason"] = ""
 
         for index, row in df.iterrows():
@@ -359,7 +370,8 @@ def main(pipeline_timestamp: str) -> None:
         summary["rows_read"] = total
         logger.info("Loaded %s rows...", total)
 
-        valid_df, quarantine_df = validate_bronze_data(pipeline_timestamp, df)
+        valid_regions = fetch_reference_values(conn=connection, table_name="DIM_REGIONS", column_name="REGION_NAME")
+        valid_df, quarantine_df = validate_bronze_data(df, valid_regions)
         summary["rows_valid"] = len(valid_df)
         summary["rows_quarantined"] = len(quarantine_df)
         summary["validation_pass_rate"] = round((len(valid_df) / total) * 100, 1)

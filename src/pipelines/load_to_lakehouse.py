@@ -13,17 +13,19 @@ Description:
 from datetime import datetime
 from pathlib import Path
 import logging
-import time
 
 import oracledb
 import pandas as pd
 
 from src.utils.oci_utils import (
-    get_database_connection,
     load_oci_config,
     create_storage_client,
     get_namespace,
-    download_object,
+    download_object
+)
+
+from src.utils.db_utils import (
+    get_database_connection,
     fetch_reference_mapping
 )
 
@@ -61,10 +63,8 @@ logger = logging.getLogger(__name__)
 # -------------------------------------------------------------------
 
 
-def prepare_records(dataframe: pd.DataFrame) -> list[tuple]:
+def prepare_records(dataframe: pd.DataFrame, region_lookup: dict, category_lookup: dict) -> list[tuple]:
     """Coerce types and convert DataFrame to Oracle-compatible row tuples."""
-    region_lookup = fetch_reference_mapping("DIM_REGIONS", "REGION_NAME", "REGION_ID")
-    category_lookup = fetch_reference_mapping("DIM_CATEGORIES", "CATEGORY_NAME", "CATEGORY_ID")
 
     dataframe = dataframe.copy()
     dataframe["created_at"] = pd.to_datetime(dataframe["created_at"])
@@ -77,7 +77,7 @@ def prepare_records(dataframe: pd.DataFrame) -> list[tuple]:
     return list(dataframe.itertuples(index=False, name=None))
 
 
-def execute_bulk_insert(cursor: oracledb.Cursor, records: list[tuple]) -> int:
+def execute_bulk_insert(connection: oracledb.Connection, records: list[tuple]) -> int:
     """Execute batch insert operation."""
 
     sql = f"""
@@ -86,7 +86,7 @@ def execute_bulk_insert(cursor: oracledb.Cursor, records: list[tuple]) -> int:
         created_at,
         customer_text,
         first_response_at,
-        sentiment,
+        sentiment_score,
         analysis_source,
         region_id,
         category_id
@@ -103,9 +103,17 @@ def execute_bulk_insert(cursor: oracledb.Cursor, records: list[tuple]) -> int:
         )
     """
 
-    logger.info("Executing bulk insert for %s records...", len(records))
-    cursor.executemany(sql, records)
-    return cursor.rowcount
+    try:
+        logger.info("Starting bulk insert operation for %s records...", len(records))
+        with connection.cursor() as cursor:
+            cursor.executemany(sql, records)
+            connection.commit()
+            logger.info("Bulk insert operation completed successfully.")
+            return cursor.rowcount
+    except Exception as e:
+        logger.exception("Failed to start pipeline stage: %s", e)
+        connection.rollback()
+        raise
 
 
 # -------------------------------------------------------------------
@@ -147,34 +155,16 @@ def main(pipeline_timestamp: str) -> None:
 
     try:
         logger.info("Loading enriched support ticket dataset...")
-        start_time = time.time()
-        
+
+        region_lookup = fetch_reference_mapping(conn=connection, table_name="DIM_REGIONS", key_column="REGION_NAME", value_column="REGION_ID")
+        category_lookup = fetch_reference_mapping(conn=connection, table_name="DIM_CATEGORIES", key_column="CATEGORY_NAME", value_column="CATEGORY_ID")
+
         df = pd.read_csv(local_enriched_file)
-        records = prepare_records(df)
-
-        connection = get_database_connection()
-        cursor = connection.cursor()
+        records = prepare_records(df, region_lookup, category_lookup)
         
-        try:
-            inserted_rows = execute_bulk_insert(cursor,records)
-            connection.commit()
-            summary["rows_loaded"] = inserted_rows
-
-            elapsed_time = round(time.time() - start_time, 2)
-            logger.info("Transaction committed successfully.")
-            logger.info("%s rows inserted into %s.", inserted_rows, TARGET_TABLE)
-            logger.info("Load completed in %s seconds.", elapsed_time)
-            complete_pipeline_stage(conn=connection, run_id=run_id, metrics=summary)
-            
-        except oracledb.Error as database_error:
-            connection.rollback()
-            logger.exception("Database error during insert operation: %s", database_error)
-            raise
-
-        finally:
-            cursor.close()
-            connection.close()
-            logger.info("Database connection closed.")
+        inserted_rows = execute_bulk_insert(connection, records)
+        summary["rows_loaded"] = inserted_rows
+        complete_pipeline_stage(conn=connection, run_id=run_id, metrics=summary)
 
     except Exception as error:
         logger.exception("Pipeline execution failed: %s", error)
@@ -182,6 +172,8 @@ def main(pipeline_timestamp: str) -> None:
         raise
 
     finally:
+        connection.close()
+        logger.info("Database connection closed.")
         if local_enriched_file.exists():
             local_enriched_file.unlink()
             logger.info("Clean up: Deleted local file %s", local_enriched_file)

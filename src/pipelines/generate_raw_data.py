@@ -29,25 +29,28 @@ import random
 import pandas as pd
 
 from src.utils.oci_utils import (
-    get_database_connection,
     load_oci_config,
     create_storage_client,
     get_namespace,
     upload_object
 )
 
+from src.utils.db_utils import (
+    get_database_connection
+)
+
 from src.utils.pipeline_utils import (
-    complete_pipeline_stage,
-    fail_pipeline_stage,
     get_stage_id,
-    start_pipeline_stage
+    start_pipeline_stage,
+    complete_pipeline_stage,
+    fail_pipeline_stage
 )
 
 # -------------------------------------------------------------------
 # Configuration
 # -------------------------------------------------------------------
 
-RECORD_COUNT = 100
+RECORD_COUNT = 20
 RANDOM_SEED = 37
 RESPONSE_RATE = 0.8  # 80% of tickets will have a response, 20% will be unanswered
 INVALID_VALUE_RATE = 0.95 # injecting 5% invalid value per column

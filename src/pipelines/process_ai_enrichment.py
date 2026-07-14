@@ -28,14 +28,19 @@ from google.genai import types
 from textblob import TextBlob
 
 from src.utils.oci_utils import (
-    get_database_connection,
     load_oci_config,
     create_storage_client,
     get_namespace,
-    fetch_reference_values,
     download_object,
     upload_object
 )
+
+from src.utils.db_utils import (
+    get_database_connection,
+    fetch_config_value,
+    fetch_reference_values,
+)
+
 from src.utils.pipeline_utils import (
     get_stage_id,
     start_pipeline_stage,
@@ -54,10 +59,6 @@ SILVER_PREFIX = "silver/"
 
 TMP_DIR = Path("data/tmp/")
 SILVER_DIR = Path("data/silver/")
-
-MODEL_NAME = "gemini-2.5-flash"
-API_DELAY_SECONDS = 3
-MAX_RETRIES = 3
 
 # -------------------------------------------------------------------
 # Logging Configuration
@@ -132,12 +133,11 @@ def build_prompt(text: str) -> str:
     """
 
 
-
-def get_ai_analysis(client: genai.Client, text: str, categories: set) -> tuple[float, str]:
+def get_ai_analysis(client: genai.Client, model_name: str, text: str, categories: set) -> tuple[float, str]:
     """Call the Gemini model and return (sentiment_score, category)."""
     prompt = build_prompt(text)
     response = client.models.generate_content(
-        model=MODEL_NAME,
+        model=model_name,
         contents=prompt,
         config=types.GenerateContentConfig(temperature=0.1)
     )
@@ -159,32 +159,32 @@ def get_ai_analysis(client: genai.Client, text: str, categories: set) -> tuple[f
 # Per-ticket Enrichment with Retry + Fallback
 # -------------------------------------------------------------------
 
-def enrich_ticket(client: genai.Client, text: str, categories: set) -> dict:
+def enrich_ticket(client: genai.Client, text: str, categories: set, model_name: str, max_retries: int, api_delay_seconds: int) -> dict:
     """
     Enrich a single ticket with sentiment and category.
 
-    Retries up to MAX_RETRIES times with exponential backoff.
+    Retries up to max_retries times with exponential backoff.
     Falls back to local TextBlob NLP after retry exhaustion.
     """
-    for attempt in range(1, MAX_RETRIES + 1):
+    for attempt in range(1, max_retries + 1):
         try:
-            sentiment, category = get_ai_analysis(client, text, categories)
+            sentiment, category = get_ai_analysis(client, model_name, text, categories)
             logger.info("AI Success: %s", category)
-            time.sleep(API_DELAY_SECONDS)  # rate-limit courtesy delay
+            time.sleep(api_delay_seconds)  # rate-limit courtesy delay
             return {
-              "sentiment": sentiment,
+              "sentiment_score": sentiment,
               "category": category,
               "analysis_source": "gemini"
             }
         except Exception as error:
-            logger.warning("AI attempt %s/%s failed: %s", attempt, MAX_RETRIES, str(error)[:22])
+            logger.warning("AI attempt %s/%s failed: %s", attempt, max_retries, str(error)[:22])
             time.sleep(2**attempt)  # Exponential backoff
 
     logger.warning("Using NLP fallback after retry exhaustion.")
     sentiment, category = analyze_locally(text)
     logger.info("NLP fallback Success: %s", category)
     return {
-        "sentiment": sentiment,
+        "sentiment_score": sentiment,
         "category": category,
         "analysis_source": "textblob"
     }
@@ -194,23 +194,21 @@ def enrich_ticket(client: genai.Client, text: str, categories: set) -> dict:
 # Dataframe-level Helpers
 # -------------------------------------------------------------------
 
-def enrich_dataframe(df: pd.DataFrame, client: genai.Client) -> pd.DataFrame:
+def enrich_dataframe(client: genai.Client, df: pd.DataFrame, valid_categories: set[str], model_name: str, max_retries: int, api_delay_seconds: int) -> pd.DataFrame:
     """Run enrich_ticket() on every row and return the enriched DataFrame."""
     enriched_results = []
     total = len(df)
 
-    valid_categories = fetch_reference_values("DIM_CATEGORIES", "CATEGORY_NAME")
-
     for index, text in enumerate(df["customer_text"], start=1):
         logger.info("Processing ticket %s / %s", index, total)
-        enriched_results.append(enrich_ticket(client, text, valid_categories))
+        enriched_results.append(enrich_ticket(client, text, valid_categories, model_name, max_retries, api_delay_seconds))
 
     results_df = pd.DataFrame(enriched_results)
     enriched_df = pd.concat([df, results_df], axis=1)
 
     # Coerce any non-numeric sentiment values produced by fallback parsing
-    enriched_df["sentiment"] = pd.to_numeric(
-        enriched_df["sentiment"], errors="coerce"
+    enriched_df["sentiment_score"] = pd.to_numeric(
+        enriched_df["sentiment_score"], errors="coerce"
     ).fillna(0)
 
     return enriched_df
@@ -252,6 +250,10 @@ def main(pipeline_timestamp: str) -> None:
     stage_id = get_stage_id(conn=connection, pipeline_code="AI_SUPPORT", stage_name="AI Enrichment")
     run_id = start_pipeline_stage(conn=connection, start_time=start_time, execution_id=pipeline_timestamp, stage_id=stage_id)
 
+    model_name = fetch_config_value(conn=connection, config_key="MODEL_NAME")
+    max_retries = int(fetch_config_value(conn=connection, config_key="MAX_RETRIES"))
+    api_delay_seconds = int(fetch_config_value(conn=connection, config_key="API_DELAY_SECONDS"))
+
     config = load_oci_config()
     storage_client = create_storage_client(config)
     namespace = get_namespace(storage_client)
@@ -284,7 +286,8 @@ def main(pipeline_timestamp: str) -> None:
         logger.info("Loaded %s support tickets.", total)
 
         client = get_gemini_client()
-        enriched_df = enrich_dataframe(df, client)
+        valid_categories = fetch_reference_values(connection, "DIM_CATEGORIES", "CATEGORY_NAME")
+        enriched_df = enrich_dataframe(client, df, valid_categories, model_name, max_retries, api_delay_seconds)
 
         if not enriched_df.empty:
             silver_filename = f"enriched_support_tickets_{pipeline_timestamp}.csv"
