@@ -27,29 +27,20 @@ Beyond business analytics, the project also implements **operational metadata**,
 ---
 
 ## 🏗️ Architecture & Data Flow
+The project follows a metadata-driven Medallion Architecture (Bronze → Silver → Gold).
+
+Each stage performs a specific responsibility—from raw data generation and validation to AI enrichment and dimensional loading into the analytics warehouse.
+
 ![Architecture Diagram](assets/architecture_diagram.jpg)
-
-### Pipeline Stages
-
-1. **Generate Raw Data (Bronze)** – Creates synthetic support ticket datasets and stores them in OCI Object Storage.
-2. **Validate Bronze Data** – Applies data quality rules, quarantines invalid records, and produces a validated dataset.
-3. **AI Enrichment (Silver)** – Enriches validated tickets using Google Gemini with automatic TextBlob fallback.
-4. **Load to Lakehouse (Gold)** – Loads enriched data into Oracle Autonomous Database using a Star Schema for analytics.
 
 ---
 
 ## 🌬️ Airflow Orchestration
 
-The pipeline is orchestrated through Apache Airflow, providing workflow scheduling, dependency management, and monitoring.
+Apache Airflow orchestrates the end-to-end workflow by managing task dependencies, execution order, retries, and monitoring.
 
 ![Airflow DAG](assets/airflow_dag_success.jpg)
 
-The DAG orchestrates four stages:
-
-1. Generate Raw Data
-2. Validate Bronze Data
-3. AI Enrichment
-4. Load to Lakehouse
 ---
 
 ## 🛠️ Tech Stack & Credentials
@@ -66,7 +57,7 @@ Built by a certified **OCI 2025 Generative AI Professional** and **Autonomous Da
 
 ---
 
-## 📊 Business Insights
+## 📊 Business Dashboard
 The final output is a dynamic dashboard that identifies operational bottlenecks:
 
 ![Business Dashboard](assets/business_dashboard.jpg)
