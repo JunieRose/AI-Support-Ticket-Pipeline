@@ -30,30 +30,6 @@ DB_DSN = os.getenv("OCI_DB_DSN")
 logger = logging.getLogger(__name__)
 
 # -------------------------------------------------------------------
-# Database Connection
-# -------------------------------------------------------------------
-
-def get_database_connection() -> oracledb.Connection:
-    """
-    Create and return an Oracle Autonomous Database connection.
-    Raises ValueError if any required environment variable is missing,
-    """
-    if not all([DB_USER, DB_PASSWORD, DB_DSN]):
-        raise ValueError(
-            "Missing required Oracle database environment variables: "
-            "OCI_DB_USER, OCI_DB_PASSWORD, OCI_DB_DSN"
-        )
-
-    logger.info("Connecting to Oracle Autonomous Database...")
-
-    return oracledb.connect(
-        user=DB_USER,
-        password=DB_PASSWORD,
-        dsn=DB_DSN
-    )
-
-
-# -------------------------------------------------------------------
 # Pipelines
 # -------------------------------------------------------------------
 
@@ -64,20 +40,20 @@ def get_stage_id(conn: oracledb.Connection, pipeline_code: str, stage_name: str)
         str: The current stage ID.
     """
     logger.info("Retrieving current stage ID from the database...")
-    sql = f"""
+    sql = """
         SELECT STAGE_ID FROM PIPELINE_STAGES
         INNER JOIN PIPELINES
         ON PIPELINES.PIPELINE_ID = PIPELINE_STAGES.PIPELINE_ID
-        WHERE PIPELINES.PIPELINE_CODE = '{pipeline_code}'
-        AND PIPELINE_STAGES.STAGE_NAME = '{stage_name}'
+        WHERE PIPELINES.PIPELINE_CODE = :1
+        AND PIPELINE_STAGES.STAGE_NAME = :2
     """
     try:
         with conn.cursor() as cursor:
-            cursor.execute(sql)
+            cursor.execute(sql, (pipeline_code, stage_name))
             result = cursor.fetchone()
             if result:
                 stage_id = result[0]
-                logger.info(f"Current stage ID: {stage_id}")
+                logger.info("Current stage ID: %i", stage_id)
                 return stage_id
             else:
                 logger.warning("No stage ID found in the database.")
@@ -117,7 +93,7 @@ def start_pipeline_stage(conn: oracledb.Connection, start_time: datetime, execut
             cursor.execute(sql, (execution_id, stage_id, status, start_time, run_id_var))
             conn.commit()
             run_id = run_id_var.getvalue()[0]
-            logger.info(f"Run ID: {run_id} marked as {status}.")
+            logger.info("Run ID: %i marked as %s.", run_id, status)
             return run_id
     except Exception as e:
         logger.exception("Failed to start pipeline stage: %s", e)
@@ -137,7 +113,7 @@ def complete_pipeline_stage(conn: oracledb.Connection, run_id: int, metrics: dic
     end_time = datetime.now()
     status = "SUCCESS"
     metrics = json.dumps(metrics)
-    logger.info(f"Marking Run ID: {run_id} as {status}...")
+    logger.info("Marking Run ID: %i as %s...", run_id, status)
 
     sql = """
         UPDATE PIPELINE_RUNS
@@ -150,7 +126,7 @@ def complete_pipeline_stage(conn: oracledb.Connection, run_id: int, metrics: dic
         with conn.cursor() as cursor:
             cursor.execute(sql, (status, end_time, metrics, run_id))
             conn.commit()
-            logger.info(f"Run ID: {run_id} marked as {status}.")
+            logger.info("Run ID: %i marked as %s.", run_id, status)
     except Exception as e:
         logger.exception("Failed to complete pipeline stage: %s", e)
         conn.rollback()
@@ -168,7 +144,7 @@ def fail_pipeline_stage(conn: oracledb.Connection, run_id: int, error_message: s
     """
     end_time = datetime.now()
     status = "FAILED"
-    logger.info(f"Marking Run ID: {run_id} as {status}...")
+    logger.info("Marking Run ID: %i as %s...", run_id, status)
     sql = """
         UPDATE PIPELINE_RUNS
         SET RUN_STATUS = :1,
@@ -180,7 +156,7 @@ def fail_pipeline_stage(conn: oracledb.Connection, run_id: int, error_message: s
         with conn.cursor() as cursor:
             cursor.execute(sql, (status, end_time, error_message, run_id))
             conn.commit()
-            logger.info(f"Run ID: {run_id} marked as {status}.")
+            logger.info("Run ID: %i marked as %s.", run_id, status)
     except Exception as e:
         logger.exception("Failed to mark pipeline stage as failed: %s", e)
         conn.rollback()

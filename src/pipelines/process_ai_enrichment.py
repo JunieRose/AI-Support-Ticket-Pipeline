@@ -147,7 +147,7 @@ def get_ai_analysis(client: genai.Client, model_name: str, text: str, categories
         score = float(score)
         if category not in categories:
             category = "General"
-        if -1.1 < score > 1.1:
+        if not (-1.0 <= score <= 1.0):
             score = 0.0 
         return score, category
     except (ValueError, TypeError):

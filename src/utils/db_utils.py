@@ -68,13 +68,13 @@ def fetch_config_value(conn: oracledb.Connection, config_key: str) -> str:
         str: The configuration value.
     """
     logger.info("Fetching configuration value for key: %s", config_key)
-    sql = f"""
+    sql = """
         SELECT CONFIG_VALUE FROM CONFIGURATION
-        WHERE CONFIG_KEY = '{config_key}'
+        WHERE CONFIG_KEY = :1
     """
     try:
         with conn.cursor() as cursor:
-            cursor.execute(sql)
+            cursor.execute(sql, (config_key,))
             result = cursor.fetchone()
             if result:
                 config_value = result[0]
@@ -103,10 +103,11 @@ def fetch_reference_values(conn: oracledb.Connection, table_name: str, column_na
     logger.info("Fetching valid %s from %s...", column_name, table_name)
     cursor = None
 
+    sql = (f"SELECT {column_name} FROM {table_name}")
+
     try:
         with conn.cursor() as cursor:
-            query = (f"SELECT {column_name} FROM {table_name}")
-            cursor.execute(query)
+            cursor.execute(sql)
             rows = cursor.fetchall()
             valid_values = {row[0] for row in rows}
     except Exception as e:
@@ -123,11 +124,12 @@ def fetch_reference_mapping(conn: oracledb.Connection, table_name: str, key_colu
     """
     logger.info("Fetching %s to %s mapping from %s...", key_column, value_column, table_name)
     cursor = None
+
+    sql = (f"SELECT {key_column}, {value_column} FROM {table_name}")
     
     try:
         with conn.cursor() as cursor:
-            query = (f"SELECT {key_column}, {value_column} FROM {table_name}")
-            cursor.execute(query)
+            cursor.execute(sql)
             valid_mapping = {
                 row[0]: row[1]
                 for row in cursor.fetchall()

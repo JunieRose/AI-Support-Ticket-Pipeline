@@ -79,13 +79,13 @@ TEMPLATES = [
     "I was double charged for my {feature} subscription. When will I get my refund? It's been months now.",
     "I have terminated my subscription but I am continuosly getting invoices. This is unacceptable!",
     "Excellent service! Patrice was patient and demonstrated expertise in resolving my {feature} issue. Appreciate it!",
-    "My account was disabled after multiple log in attempt. Please enable.",
+    "My account was disabled after multiple log in attempt with {error}. Please enable.",
     "How do I reset my Admin password for the {feature}?",
     "How do I enable {feature} feature? I can't find it in the settings. Please share the documentation link.",
-    "Our customers is unable to reach us becase the {feature} is down. Give us a call and treat this with urgency.",
+    "Our customers is unable to reach us becase the {feature} is returning {error}. Give us a call and treat this with urgency.",
     "ALL USERS can't access {feature} because it keeps crashing. This is negatively impacting our productivity!",
-    "Our system keeps is down, it keeps redirecting to Maintenance Page. We are losing customers because of this!",
-    "My {feature} is unavailable for hours. I have a critical deadline and this is causing me a lot of stress."
+    "Our system is down, it keeps redirecting to Maintenance Page. We are losing customers because of this!",
+    "My {feature} is unavailable for hours showing {error}. I have a critical deadline and this is causing me a lot of stress."
 ]
 
 FEATURES = [
@@ -191,10 +191,11 @@ def generate_customer_text() -> str | None:
             return None
         return "   "
     
-    return random.choice(TEMPLATES).format(
-      feature=random.choice(FEATURES),
-      error=random.choice(ERRORS)
-    )
+    template = random.choice(TEMPLATES)
+    kwargs = {}
+    if "{feature}" in template: kwargs["feature"] = random.choice(FEATURES)
+    if "{error}" in template: kwargs["error"] = random.choice(ERRORS)
+    return template.format(**kwargs)
 
 
 def generate_region() -> str | None:
@@ -251,7 +252,7 @@ def generate_support_data(record_count: int = RECORD_COUNT) -> pd.DataFrame:
 
     for i in range(record_count):
         # Store duplicate ticket record, change created_at
-        if should_generate_invalid():
+        if i > 0 and should_generate_invalid():
             previous_record = ticket_data[i-1]
             previous_record["created_at"] = generate_created_at()
             ticket_data.append(previous_record)

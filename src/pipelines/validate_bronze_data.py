@@ -172,7 +172,7 @@ def validate_first_response_at(row: pd.Series, failures: list) -> None:
         response_dt = pd.to_datetime(row["first_response_at"])
     except Exception:
         failures.append(f"first_response_at is not a valid datetime: {row['first_response_at']}")
-
+        return
     try:
         created_at = pd.to_datetime(row["created_at"])
         if response_dt < created_at:
