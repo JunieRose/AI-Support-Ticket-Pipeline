@@ -52,13 +52,22 @@ Built by a certified **OCI 2025 Generative AI Professional** and **Autonomous Da
 * **Database:** Oracle Autonomous Lakehouse 26ai
 * **Storage:** OCI Standard Object Storgae
 * **Language:** Python 3.11 (Pandas, OCI SDK, Google-GenAI SDK)
-* **Visualization:** OCI Charts
+* **Visualization:** Power BI, OCI Charts
 * **Development:** Git, GitHub, VS Code, WSL
 
 ---
 
-## 📊 Business Dashboard
-The final output is a dynamic dashboard that identifies operational bottlenecks:
+## 📊 Analytics & Reporting
+
+### Pipeline Observability
+
+Monitors pipeline execution health, stage performance, validation results, AI enrichment usage, runtime trends, and failed executions.
+
+![Pipeline Observability Dashboard](assets/pipeline_observability_dashboard.jpg)
+
+### Business Analytics
+
+Provides insights into support ticket volume, sentiment, categorization, and SLA performance that helps identifies operational bottlenecks.
 
 ![Business Dashboard](assets/business_dashboard.jpg)
 
